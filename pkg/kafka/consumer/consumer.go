@@ -45,8 +45,10 @@ func clusterConfig(cfg config.Consumer) *cluster.Config {
 	c.Net.SASL.Password = cfg.SASL.Password
 	c.Net.SASL.Handshake = cfg.SASL.Handshake
 	c.Net.TLS.Enable = cfg.TLS.Enabled
-	c.Net.TLS.Config = &tls.Config{
-		InsecureSkipVerify: cfg.TLS.Insecure,
+	if cfg.TLS.Enabled {
+		c.Net.TLS.Config = &tls.Config{
+			InsecureSkipVerify: cfg.TLS.Insecure,
+		}
 	}
 	return c
 }
