@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/navikt/deployment-event-relays/pkg/kafka/config"
 	"github.com/sirupsen/logrus"
+	"sync"
 
 	"github.com/Shopify/sarama"
 	"github.com/bsm/sarama-cluster"
@@ -15,16 +16,64 @@ type Message struct {
 	Ack func()
 }
 
+const (
+	recvQueueSize = 32768
+)
+
 type client struct {
-	queue    chan sarama.ConsumerMessage
+	recvQ    chan Message
 	consumer *cluster.Consumer
+	once     sync.Once
 }
 
 type Client interface {
-	Next() (*Message, error)
+	Consume() chan Message
 }
 
-func (c *client) Next() (*Message, error) {
+func New(cfg config.Consumer) (Client, error) {
+	var err error
+
+	client := &client{
+		recvQ: make (chan Message, recvQueueSize),
+	}
+
+	// Instantiate a Kafka client operating in consumer group mode,
+	// starting from the oldest unread offset.
+
+	client.consumer, err = cluster.NewConsumer(cfg.Brokers, cfg.GroupID, []string{cfg.Topic}, clusterConfig(cfg))
+	if err != nil {
+		return nil, fmt.Errorf("while setting up Kafka consumer: %s", err)
+	}
+
+	return client, nil
+}
+
+// Consume starts consuming messages from Kafka, and returns
+// a channel on which the messages will arrive. The function
+// call is idempotent.
+//
+// Callers may store their position on the Kafka topic by calling Ack()
+// on the returned message.
+func (c *client) Consume() chan Message {
+	c.once.Do(func() { go c.main() })
+	return c.recvQ
+}
+
+// Put messages on the queue until the channel is closed.
+func (c *client) main() {
+	for {
+		msg, err := c.next()
+		if err != nil {
+			close(c.recvQ)
+			return
+		}
+		c.recvQ <- *msg
+	}
+}
+
+// Consume one message from Kafka, wrap it together with an Ack closure,
+// and return it to caller.
+func (c *client) next() (*Message, error) {
 	m, ok := <-c.consumer.Messages()
 	if !ok {
 		return nil, fmt.Errorf("consumer has shut down")
@@ -62,20 +111,4 @@ func clusterConfig(cfg config.Consumer) *cluster.Config {
 		}
 	}
 	return c
-}
-
-func New(cfg config.Consumer) (Client, error) {
-	var err error
-
-	client := &client{}
-
-	// Instantiate a Kafka client operating in consumer group mode,
-	// starting from the oldest unread offset.
-
-	client.consumer, err = cluster.NewConsumer(cfg.Brokers, cfg.GroupID, []string{cfg.Topic}, clusterConfig(cfg))
-	if err != nil {
-		return nil, fmt.Errorf("while setting up Kafka consumer: %s", err)
-	}
-
-	return client, nil
 }

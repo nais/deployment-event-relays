@@ -84,25 +84,13 @@ func run() error {
 		return err
 	}
 
-	messages := make(chan consumer.Message)
-	go func() {
-		for {
-			msg, err := kafka.Next()
-			if err != nil {
-				close(messages)
-				return
-			}
-			messages <- *msg
-		}
-	}()
-
 	for {
 		select {
 		case sig := <-signals:
 			log.Infof("Caught signal '%s'; exiting.", sig.String())
 			return nil
 
-		case msg, ok := <-messages:
+		case msg, ok := <-kafka.Consume():
 			if !ok {
 				return fmt.Errorf("kafka consumer has shut down")
 			}
