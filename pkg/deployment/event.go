@@ -15,7 +15,7 @@ func (m *Event) LogFields() log.Fields {
 		"deployer_email":   m.GetDeployer().GetEmail(),
 		"deployer_ident":   m.GetDeployer().GetIdent(),
 		"team":             m.GetTeam(),
-		"rollout_status":   m.GetRolloutStatus(),
+		"rollout_status":   m.GetRolloutStatus().String(),
 		"environment":      m.GetEnvironment().String(),
 		"namespace":        m.GetNamespace(),
 		"cluster":          m.GetCluster(),
