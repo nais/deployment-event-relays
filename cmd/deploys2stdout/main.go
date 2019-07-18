@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	kafka_config "github.com/navikt/deployment-event-relays/pkg/kafka/config"
+	kafkaconfig "github.com/navikt/deployment-event-relays/pkg/kafka/config"
 	"github.com/navikt/deployment-event-relays/pkg/kafka/consumer"
 	"github.com/navikt/deployment-event-relays/pkg/logging"
 	log "github.com/sirupsen/logrus"
@@ -19,7 +19,7 @@ type configuration struct {
 var (
 	signals     chan os.Signal
 	cfg         = defaultConfig()
-	kafkaConfig = kafka_config.DefaultConsumer()
+	kafkaConfig = kafkaconfig.DefaultConsumer()
 )
 
 func defaultConfig() configuration {
@@ -36,7 +36,7 @@ func init() {
 	flag.StringVar(&cfg.LogFormat, "log-format", cfg.LogFormat, "Log format, either 'json' or 'text'.")
 	flag.StringVar(&cfg.LogVerbosity, "log-verbosity", cfg.LogVerbosity, "Logging verbosity level.")
 
-	kafka_config.SetupFlags(&kafkaConfig)
+	kafkaconfig.SetupFlags(&kafkaConfig)
 }
 
 func main() {
@@ -53,7 +53,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	kafka_config.SetLogger(kafkaLogger)
+	kafkaconfig.SetLogger(kafkaLogger)
 
 	err = logging.Apply(log.StandardLogger(), cfg.LogVerbosity, cfg.LogFormat)
 	if err != nil {
