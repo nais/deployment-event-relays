@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/navikt/deployment-event-relays/pkg/kafka/config"
+	kafka_config "github.com/navikt/deployment-event-relays/pkg/kafka/config"
 	"github.com/navikt/deployment-event-relays/pkg/kafka/consumer"
 	"github.com/navikt/deployment-event-relays/pkg/logging"
 	log "github.com/sirupsen/logrus"
@@ -11,11 +11,32 @@ import (
 	"os/signal"
 )
 
-var signals chan os.Signal
+type configuration struct {
+	LogFormat    string
+	LogVerbosity string
+}
+
+var (
+	signals     chan os.Signal
+	cfg         = defaultConfig()
+	kafkaConfig = kafka_config.DefaultConsumer()
+)
+
+func defaultConfig() configuration {
+	return configuration{
+		LogFormat:    "text",
+		LogVerbosity: "trace",
+	}
+}
 
 func init() {
 	signals = make(chan os.Signal, 1)
 	signal.Notify(signals, os.Interrupt)
+
+	flag.StringVar(&cfg.LogFormat, "log-format", cfg.LogFormat, "Log format, either 'json' or 'text'.")
+	flag.StringVar(&cfg.LogVerbosity, "log-verbosity", cfg.LogVerbosity, "Logging verbosity level.")
+
+	kafka_config.SetupFlags(&kafkaConfig)
 }
 
 func main() {
@@ -26,17 +47,15 @@ func main() {
 }
 
 func run() error {
-	kafkaConfig := config.DefaultConsumer()
-	config.SetupFlags(&kafkaConfig)
 	flag.Parse()
 
-	kafkaLogger, err := logging.ConstLevel(kafkaConfig.Verbosity, "text")
+	kafkaLogger, err := logging.ConstLevel(kafkaConfig.Verbosity, cfg.LogFormat)
 	if err != nil {
 		return err
 	}
-	config.SetLogger(kafkaLogger)
+	kafka_config.SetLogger(kafkaLogger)
 
-	err = logging.Apply(log.StandardLogger(), "INFO", "text")
+	err = logging.Apply(log.StandardLogger(), cfg.LogVerbosity, cfg.LogFormat)
 	if err != nil {
 		return err
 	}
