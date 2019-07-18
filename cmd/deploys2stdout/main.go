@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"github.com/golang/protobuf/proto"
+	"github.com/navikt/deployment-event-relays/pkg/deployment"
 	kafkaconfig "github.com/navikt/deployment-event-relays/pkg/kafka/config"
 	"github.com/navikt/deployment-event-relays/pkg/kafka/consumer"
 	"github.com/navikt/deployment-event-relays/pkg/logging"
@@ -46,6 +48,21 @@ func main() {
 	}
 }
 
+func greenField(fields log.Fields) log.Fields {
+	newFields := log.Fields{}
+	for k, v := range fields {
+		switch x := v.(type) {
+		case string:
+			if len(x) > 0 {
+				newFields[k] = x
+			}
+		default:
+			newFields[k] = v
+		}
+	}
+	return newFields
+}
+
 func run() error {
 	flag.Parse()
 
@@ -87,9 +104,19 @@ func run() error {
 			if !ok {
 				return fmt.Errorf("kafka consumer has shut down")
 			}
+
 			data := msg.M.Value
-			log.Info(data)
-			msg.Ack()
+			logger := log.WithFields(greenField(msg.LogFields()))
+
+			event := &deployment.Event{}
+			err = proto.Unmarshal(data, event)
+			if err != nil {
+				logger.Errorf("unable to unmarshal incoming message: %s", err)
+				continue
+			}
+
+			logger = logger.WithFields(greenField(event.LogFields()))
+			logger.Infof("Deployment %s", event.RolloutStatus.String())
 		}
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"github.com/navikt/deployment-event-relays/pkg/kafka/config"
+	"github.com/sirupsen/logrus"
 
 	"github.com/Shopify/sarama"
 	"github.com/bsm/sarama-cluster"
@@ -34,6 +35,16 @@ func (c *client) Next() (*Message, error) {
 			c.consumer.MarkOffset(m, "")
 		},
 	}, nil
+}
+
+func (m *Message) LogFields() logrus.Fields {
+	if m == nil {
+		return logrus.Fields{}
+	}
+	return logrus.Fields{
+		"kafka_topic":  m.M.Topic,
+		"kafka_offset": m.M.Offset,
+	}
 }
 
 func clusterConfig(cfg config.Consumer) *cluster.Config {
