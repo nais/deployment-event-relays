@@ -11,15 +11,6 @@ const (
 	distantFuture       = int64(15000000000)
 )
 
-// Some timestamps are milliseconds and some timestamps are seconds.
-// The cutoff `distantFuture` is at 2445-05-01 02:40:00 +0000 UTC.
-func funkyTime(timestamp int64) time.Time {
-	if timestamp > distantFuture {
-		return time.Unix(timestamp/millisPerSecond, (timestamp%millisPerSecond)*nanosPerMillisecond)
-	}
-	return time.Unix(timestamp, 0)
-}
-
 func (m *Event) LogFields() log.Fields {
 	return log.Fields{
 		"correlation_id":   m.GetCorrelationID(),
@@ -39,6 +30,16 @@ func (m *Event) LogFields() log.Fields {
 		"image_name":       m.GetImage().GetName(),
 		"image_tag":        m.GetImage().GetTag(),
 		"image_hash":       m.GetImage().GetHash(),
-		"timestamp":        funkyTime(m.GetTimestamp()),
+		"timestamp":        m.GetTimestampAsTime(),
 	}
+}
+
+// Some timestamps are milliseconds and some timestamps are seconds.
+// The cutoff `distantFuture` is at 2445-05-01 02:40:00 +0000 UTC.
+func (m Event) GetTimestampAsTime() time.Time {
+	timestamp := m.GetTimestamp()
+	if timestamp > distantFuture {
+		return time.Unix(timestamp/millisPerSecond, (timestamp%millisPerSecond)*nanosPerMillisecond)
+	}
+	return time.Unix(timestamp, 0)
 }
