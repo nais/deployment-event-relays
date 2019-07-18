@@ -66,6 +66,8 @@ func greenField(fields log.Fields) log.Fields {
 func run() error {
 	flag.Parse()
 
+	log.SetOutput(os.Stdout)
+
 	kafkaLogger, err := logging.ConstLevel(kafkaConfig.Verbosity, cfg.LogFormat)
 	if err != nil {
 		return err
