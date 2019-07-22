@@ -15,19 +15,38 @@ type eventLineTest struct {
 
 var eventLineTests = []eventLineTest{
 	{
-		data: "nais.deployment,application=app,cluster=cluster,environment=development,platform_type=nais,rollout_status=complete,team=team source=naiserator,version=1.2.3 123456789000000000\n",
+		data:  "nais.deployment,environment=production,platform_type=jboss,rollout_status=unknown source=aura 0\n",
+		event: deployment.Event{},
+	},
+	{
+		data: "nais.deployment,application=app,cluster=clust,environment=development,namespace=ns,platform_type=nais,rollout_status=complete,team=tea " +
+			"correlation_id=id,deployer_email=bar,deployer_ident=baz,deployer_name=foo," +
+			"image_hash=impossible,image_name=docker.io/foo/bar,image_tag=latest,source=naiserator,version=1.2.3 123456789000000000\n",
 		event: deployment.Event{
-			Application: "app",
-			Cluster:     "cluster",
+			Application:   "app",
+			Cluster:       "clust",
+			CorrelationID: "id",
+			Deployer: &deployment.Actor{
+				Name:  "foo",
+				Email: "bar",
+				Ident: "baz",
+			},
 			Environment: deployment.Environment_development,
-			Source:      deployment.System_naiserator,
-			Team:        "team",
+			Image: &deployment.ContainerImage{
+				Name: "docker.io/foo/bar",
+				Tag:  "latest",
+				Hash: "impossible",
+			},
+			Namespace: "ns",
 			Platform: &deployment.Platform{
 				Type: deployment.PlatformType_nais,
 			},
-			RolloutStatus: deployment.RolloutStatus_complete,
-			Version:       "1.2.3",
-			Timestamp:     123456789,
+			RolloutStatus:   deployment.RolloutStatus_complete,
+			SkyaEnvironment: "skya",
+			Source:          deployment.System_naiserator,
+			Team:            "tea",
+			Timestamp:       123456789,
+			Version:         "1.2.3",
 		},
 	},
 }
@@ -36,7 +55,9 @@ func TestEventLineData(t *testing.T) {
 	for _, test := range eventLineTests {
 		line := influx.NewLine(&test.event)
 		data, err := line.Marshal()
-		assert.Equal(t, test.data, string(data))
 		assert.Equal(t, test.err, err)
+		if err == nil {
+			assert.Equal(t, test.data, string(data))
+		}
 	}
 }
