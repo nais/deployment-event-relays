@@ -3,6 +3,7 @@ package influx
 import (
 	"bytes"
 	"fmt"
+	"github.com/navikt/deployment-event-relays/pkg/deployment"
 	"strconv"
 	"time"
 )
@@ -17,6 +18,27 @@ type Line struct {
 	Fields      TagField
 	Timestamp   time.Time
 }
+
+// NewLine collects data from a deployment event and copies it to a InfluxDB line data structure.
+// Only tags believed to be relevant to instrumentation are copied over.
+func NewLine(event *deployment.Event) Line {
+	return Line{
+		Measurement: "deployment",
+		Tags: TagField{
+			"application":    event.GetApplication(),
+			"cluster":        event.GetCluster(),
+			"environment":    event.GetEnvironment().String(),
+			"team":           event.GetTeam(),
+			"platform":       event.GetPlatform().GetType().String(),
+			"rollout_status": event.GetRolloutStatus().String(),
+		},
+		Fields: TagField{
+			"version": event.GetVersion(),
+		},
+		Timestamp: event.GetTimestampAsTime(),
+	}
+}
+
 
 // Marshal encodes the data using the InfluxDB line syntax.
 // If the data can be serialized, returns a byte slice with a terminating newline.
