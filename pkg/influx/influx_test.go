@@ -15,11 +15,12 @@ type eventLineTest struct {
 
 var eventLineTests = []eventLineTest{
 	{
-		data: "deployment,application=app,cluster=cluster,environment=development,platform=nais,rollout_status=complete,team=team version=1.2.3 123456789000000000\n",
+		data: "nais.deployment,application=app,cluster=cluster,environment=development,platform_type=nais,rollout_status=complete,team=team source=naiserator,version=1.2.3 123456789000000000\n",
 		event: deployment.Event{
 			Application: "app",
 			Cluster:     "cluster",
 			Environment: deployment.Environment_development,
+			Source:      deployment.System_naiserator,
 			Team:        "team",
 			Platform: &deployment.Platform{
 				Type: deployment.PlatformType_nais,

@@ -1,7 +1,6 @@
 package deployment
 
 import (
-	log "github.com/sirupsen/logrus"
 	"time"
 )
 
@@ -11,8 +10,20 @@ const (
 	distantFuture       = int64(15000000000)
 )
 
-func (m *Event) LogFields() log.Fields {
-	return log.Fields{
+func nonEmpty(data map[string]string) map[string]string {
+	result := make(map[string]string)
+	for k, v := range data {
+		if len(v) > 0 {
+			result[k] = v
+		}
+	}
+	return result
+}
+
+// Flatten returns all non-empty values as a key -> value hash.
+// Nested data structures are flattened with key names joined using an underscore.
+func (m *Event) Flatten() map[string]string {
+	return nonEmpty(map[string]string{
 		"correlation_id":   m.GetCorrelationID(),
 		"platform_type":    m.GetPlatform().GetType().String(),
 		"platform_variant": m.GetPlatform().GetVariant(),
@@ -30,8 +41,7 @@ func (m *Event) LogFields() log.Fields {
 		"image_name":       m.GetImage().GetName(),
 		"image_tag":        m.GetImage().GetTag(),
 		"image_hash":       m.GetImage().GetHash(),
-		"timestamp":        m.GetTimestampAsTime(),
-	}
+	})
 }
 
 // Some timestamps are milliseconds and some timestamps are seconds.

@@ -18,3 +18,15 @@ func (t TagField) Sorted() []string {
 	keys.Sort()
 	return keys
 }
+
+// Selection returns a subset of the fields.
+// A new TagField with only the provided keys will be returned.
+func (t TagField) Selection(keys []string) TagField {
+	selection := make(TagField)
+	for _, key := range keys {
+		if val, ok := t[key]; ok {
+			selection[key] = val
+		}
+	}
+	return selection
+}

@@ -8,6 +8,10 @@ import (
 	"time"
 )
 
+const (
+	measurementName = "nais.deployment"
+)
+
 // Line represents a single data entry in the InfluxDB line protocol.
 //
 // https://docs.influxdata.com/influxdb/v1.7/write_protocols/line_protocol_reference/
@@ -20,25 +24,37 @@ type Line struct {
 }
 
 // NewLine collects data from a deployment event and copies it to a InfluxDB line data structure.
-// Only tags believed to be relevant to instrumentation are copied over.
+// Tags will be indexed, but fields will be subject to a table scan if queried.
 func NewLine(event *deployment.Event) Line {
+
+	tags := TagField(event.Flatten())
+
 	return Line{
-		Measurement: "deployment",
-		Tags: TagField{
-			"application":    event.GetApplication(),
-			"cluster":        event.GetCluster(),
-			"environment":    event.GetEnvironment().String(),
-			"team":           event.GetTeam(),
-			"platform":       event.GetPlatform().GetType().String(),
-			"rollout_status": event.GetRolloutStatus().String(),
-		},
-		Fields: TagField{
-			"version": event.GetVersion(),
-		},
-		Timestamp: event.GetTimestampAsTime(),
+		Measurement: measurementName,
+		Timestamp:   event.GetTimestampAsTime(),
+		Tags: tags.Selection([]string{
+			"application",
+			"cluster",
+			"environment",
+			"namespace",
+			"platform_type",
+			"rollout_status",
+			"team",
+		}),
+		Fields: tags.Selection([]string{
+			"correlation_id",
+			"deployer_email",
+			"deployer_ident",
+			"deployer_name",
+			"image_hash",
+			"image_name",
+			"image_tag",
+			"skya_environment",
+			"source",
+			"version",
+		}),
 	}
 }
-
 
 // Marshal encodes the data using the InfluxDB line syntax.
 // If the data can be serialized, returns a byte slice with a terminating newline.
