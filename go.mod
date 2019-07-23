@@ -14,5 +14,6 @@ require (
 	github.com/rivo/tview v0.0.0-20190717164645-b8bb0f928fd5
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/pflag v1.0.3
+	github.com/stretchr/testify v1.3.0
 	gopkg.in/jcmturner/goidentity.v3 v3.0.0 // indirect
 )
