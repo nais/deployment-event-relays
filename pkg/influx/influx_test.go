@@ -1,6 +1,7 @@
 package influx_test
 
 import (
+	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/navikt/deployment-event-relays/pkg/deployment"
 	"github.com/navikt/deployment-event-relays/pkg/influx"
 	"github.com/stretchr/testify/assert"
@@ -45,8 +46,10 @@ var eventLineTests = []eventLineTest{
 			SkyaEnvironment: "skya",
 			Source:          deployment.System_naiserator,
 			Team:            "tea",
-			Timestamp:       123456789,
-			Version:         "1.2.3",
+			Timestamp: &timestamp.Timestamp{
+				Seconds: 123456789,
+			},
+			Version: "1.2.3",
 		},
 	},
 }

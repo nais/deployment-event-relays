@@ -4,12 +4,6 @@ import (
 	"time"
 )
 
-const (
-	millisPerSecond     = int64(time.Second / time.Millisecond)
-	nanosPerMillisecond = int64(time.Millisecond / time.Nanosecond)
-	distantFuture       = int64(15000000000)
-)
-
 func nonEmpty(data map[string]string) map[string]string {
 	result := make(map[string]string)
 	for k, v := range data {
@@ -44,12 +38,6 @@ func (m *Event) Flatten() map[string]string {
 	})
 }
 
-// Some timestamps are milliseconds and some timestamps are seconds.
-// The cutoff `distantFuture` is at 2445-05-01 02:40:00 +0000 UTC.
-func (m Event) GetTimestampAsTime() time.Time {
-	timestamp := m.GetTimestamp()
-	if timestamp > distantFuture {
-		return time.Unix(timestamp/millisPerSecond, (timestamp%millisPerSecond)*nanosPerMillisecond)
-	}
-	return time.Unix(timestamp, 0)
+func (m *Event) GetTimestampAsTime() time.Time {
+	return time.Unix(m.GetTimestamp().GetSeconds(), int64(m.GetTimestamp().GetNanos()))
 }
