@@ -62,6 +62,9 @@ func NewLine(event *deployment.Event) Line {
 //
 // Field and tag keys will be sorted before serialization.
 //
+// String fields must be quoted, but tag values are better left unquoted
+// as the quotes will appear in the actual data.
+//
 // The InfluxDB line format is as follows:
 //
 // <measurement>[,<tag_key>=<tag_value>[,<tag_key>=<tag_value>]] <field_key>=<field_value>[,<field_key>=<field_value>] [<timestamp>]
@@ -91,9 +94,9 @@ func (line Line) Marshal() ([]byte, error) {
 
 	// <field_key>=<field_value>[,<field_key>=<field_value>]
 	keys := line.Fields.Sorted()
-	writer.WriteString(fmt.Sprintf("%s=%s", keys[0], line.Fields[keys[0]]))
+	writer.WriteString(fmt.Sprintf("%s=%s", keys[0], strconv.Quote(line.Fields[keys[0]])))
 	for _, key := range keys[1:] {
-		writer.WriteString(fmt.Sprintf(",%s=%s", key, line.Fields[key]))
+		writer.WriteString(fmt.Sprintf(",%s=%s", key, strconv.Quote(line.Fields[key])))
 	}
 
 	// DELIMITER
