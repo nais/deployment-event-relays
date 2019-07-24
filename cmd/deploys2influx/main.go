@@ -201,7 +201,7 @@ func run() error {
 
 			// Discard the message permanently.
 			if err != nil {
-				logger.Errorf("Discarding incoming message due to unrecoverable error: %s")
+				logger.Errorf("Discarding incoming message due to unrecoverable error: %s", err)
 				ack(msg)
 				continue
 			}

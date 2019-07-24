@@ -20,3 +20,10 @@ proto:
 	$(PROTOC) --plugin=$(PROTOC_GEN_GO) --go_out=. event.proto
 	mv event.pb.go pkg/deployment/
 	rm -f event.proto
+
+alpine:
+	go build -a -installsuffix cgo -o deploys2stdout cmd/deploys2stdout/main.go
+	go build -a -installsuffix cgo -o deploys2influx cmd/deploys2influx/main.go
+
+test:
+	go test ./...
