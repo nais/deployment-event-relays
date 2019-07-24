@@ -56,7 +56,7 @@ func init() {
 
 	flag.StringVar(&cfg.LogFormat, "log-format", cfg.LogFormat, "Log format, either 'json' or 'text'.")
 	flag.StringVar(&cfg.LogVerbosity, "log-verbosity", cfg.LogVerbosity, "Logging verbosity level.")
-	flag.BoolVar(&cfg.Ack, "ack", cfg.Ack, "Acknowledge messages in Kafka queue, i.e. store consumer group position.")
+	flag.BoolVar(&cfg.Ack, "kafka-ack", cfg.Ack, "Acknowledge messages in Kafka queue, i.e. store consumer group position.")
 	flag.StringVar(&cfg.URL, "influxdb-url", cfg.URL, "Full URL to InfluxDB 1.7 write endpoint.")
 	flag.StringVar(&cfg.Username, "influxdb-username", cfg.Username, "InfluxDB username.")
 	flag.StringVar(&cfg.Password, "influxdb-password", cfg.Password, "InfluxDB password.")
