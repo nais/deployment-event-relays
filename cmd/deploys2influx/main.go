@@ -22,6 +22,8 @@ type configuration struct {
 	LogVerbosity string
 	Ack          bool
 	URL          string
+	Username     string
+	Password     string
 }
 
 type postCallback func() error
@@ -43,6 +45,8 @@ func defaultConfig() configuration {
 		LogVerbosity: "trace",
 		Ack:          false,
 		URL:          "http://localhost:8086/write?db=default",
+		Username:     os.Getenv("INFLUX_USERNAME"),
+		Password:     os.Getenv("INFLUX_PASSWORD"),
 	}
 }
 
@@ -53,7 +57,9 @@ func init() {
 	flag.StringVar(&cfg.LogFormat, "log-format", cfg.LogFormat, "Log format, either 'json' or 'text'.")
 	flag.StringVar(&cfg.LogVerbosity, "log-verbosity", cfg.LogVerbosity, "Logging verbosity level.")
 	flag.BoolVar(&cfg.Ack, "ack", cfg.Ack, "Acknowledge messages in Kafka queue, i.e. store consumer group position.")
-	flag.StringVar(&cfg.URL, "influxdb-url", cfg.URL, "URL to InfluxDB 1.7 write endpoint.")
+	flag.StringVar(&cfg.URL, "influxdb-url", cfg.URL, "Full URL to InfluxDB 1.7 write endpoint.")
+	flag.StringVar(&cfg.Username, "influxdb-username", cfg.Username, "InfluxDB username.")
+	flag.StringVar(&cfg.Password, "influxdb-password", cfg.Password, "InfluxDB password.")
 
 	kafkaconfig.SetupFlags(&kafkaConfig)
 }
@@ -82,7 +88,7 @@ func extract(msg consumer.Message) (*deployment.Event, *log.Entry, error) {
 	return event, logger, nil
 }
 
-func prepare(url string, event deployment.Event) (postCallback, error) {
+func prepare(url, username, password string, event deployment.Event) (postCallback, error) {
 	line := influx.NewLine(&event)
 	payload, err := line.Marshal()
 	if err != nil {
@@ -93,6 +99,10 @@ func prepare(url string, event deployment.Event) (postCallback, error) {
 	request, err := http.NewRequest("POST", url, body)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create new HTTP request object: %s", err)
+	}
+
+	if len(username) > 0 && len(password) > 0 {
+		request.SetBasicAuth(username, password)
 	}
 
 	// Create a callback function wrapping recoverable network errors.
@@ -185,7 +195,7 @@ func run() error {
 
 				// Prepare a closure that will post our data to InfluxDB.
 				// An error here is also non-recoverable.
-				callback, err = prepare(cfg.URL, *event)
+				callback, err = prepare(cfg.URL, cfg.Username, cfg.Password, *event)
 			}
 
 			// Discard the message permanently.
