@@ -12,7 +12,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
 	"net/http"
-	"net/url"
 	"os"
 	"os/signal"
 )
@@ -22,7 +21,6 @@ type configuration struct {
 	LogVerbosity string
 	Ack          bool
 	URL          string
-	Database     string
 }
 
 var (
@@ -36,8 +34,7 @@ func defaultConfig() configuration {
 		LogFormat:    "text",
 		LogVerbosity: "trace",
 		Ack:          false,
-		URL:          "http://localhost:8086",
-		Database:     "default",
+		URL:          "http://localhost:8086/write?db=default",
 	}
 }
 
@@ -48,8 +45,7 @@ func init() {
 	flag.StringVar(&cfg.LogFormat, "log-format", cfg.LogFormat, "Log format, either 'json' or 'text'.")
 	flag.StringVar(&cfg.LogVerbosity, "log-verbosity", cfg.LogVerbosity, "Logging verbosity level.")
 	flag.BoolVar(&cfg.Ack, "ack", cfg.Ack, "Acknowledge messages in Kafka queue, i.e. store consumer group position.")
-	flag.StringVar(&cfg.URL, "influxdb-url", cfg.URL, "Root URL to InfluxDB 1.7 write endpoint.")
-	flag.StringVar(&cfg.Database, "influxdb-database", cfg.Database, "InfluxDB database name.")
+	flag.StringVar(&cfg.URL, "influxdb-url", cfg.URL, "URL to InfluxDB 1.7 write endpoint.")
 
 	kafkaconfig.SetupFlags(&kafkaConfig)
 }
@@ -76,18 +72,6 @@ func prepare(msg consumer.Message) (*deployment.Event, *log.Entry, error) {
 	logger = logger.WithField("timestamp", event.GetTimestampAsTime().String())
 
 	return event, logger, nil
-}
-
-func writeurl(baseURL string) (string, error) {
-	base, err := url.Parse(baseURL)
-	if err != nil {
-		return "", fmt.Errorf("parsing InfluxDB base url: %s", err)
-	}
-	queryParams := url.Values{}
-	queryParams.Set("db", cfg.Database)
-	base.Path = "/write"
-	base.RawQuery = queryParams.Encode()
-	return base.String(), nil
 }
 
 func request(url string, event deployment.Event) error {
@@ -121,11 +105,6 @@ func run() error {
 	flag.Parse()
 
 	log.SetOutput(os.Stdout)
-
-	influxURL, err := writeurl(cfg.URL)
-	if err != nil {
-		return err
-	}
 
 	kafkaLogger, err := logging.ConstLevel(kafkaConfig.Verbosity, cfg.LogFormat)
 	if err != nil {
@@ -161,7 +140,7 @@ func run() error {
 
 				// Perform the request against InfluxDB.
 				// These errors are possibly recoverable.
-				err = request(influxURL, *event)
+				err = request(cfg.URL, *event)
 			}
 
 			if err != nil {
