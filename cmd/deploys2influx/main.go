@@ -9,22 +9,26 @@ import (
 	kafkaconfig "github.com/navikt/deployment-event-relays/pkg/kafka/config"
 	"github.com/navikt/deployment-event-relays/pkg/kafka/consumer"
 	"github.com/navikt/deployment-event-relays/pkg/logging"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
 	"net/http"
 	"os"
 	"os/signal"
+	"syscall"
 	"time"
 )
 
 type configuration struct {
-	LogFormat    string
-	LogVerbosity string
-	Ack          bool
-	URL          string
-	Username     string
-	Password     string
-	Kafka        kafkaconfig.Consumer
+	LogFormat         string
+	LogVerbosity      string
+	Ack               bool
+	URL               string
+	Username          string
+	Password          string
+	MetricsListenAddr string
+	Kafka             kafkaconfig.Consumer
 }
 
 type postCallback func() error
@@ -38,17 +42,46 @@ var (
 	signals   = make(chan os.Signal, 1)
 	workloads = make(chan Workload, 4096)
 	cfg       = defaultConfig()
+
+	written = prometheus.NewCounter(prometheus.CounterOpts{
+		Name:      "written",
+		Help:      "Number of InfluxDB lines inserted",
+		Namespace: "deployment",
+		Subsystem: "deploys2influx",
+	})
+
+	discarded = prometheus.NewCounter(prometheus.CounterOpts{
+		Name:      "discarded",
+		Help:      "Number of events discarded due to unrecoverable errors",
+		Namespace: "deployment",
+		Subsystem: "deploys2influx",
+	})
+
+	transientErrors = prometheus.NewCounter(prometheus.CounterOpts{
+		Name:      "transient_errors",
+		Help:      "Number of recoverable errors encountered during InfluxDB communication",
+		Namespace: "deployment",
+		Subsystem: "deploys2influx",
+	})
+
+	queueSize = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name:      "queue_size",
+		Help:      "Kafka messages read but not committed to InfluxDB",
+		Namespace: "deployment",
+		Subsystem: "deploys2influx",
+	})
 )
 
 func defaultConfig() configuration {
 	return configuration{
-		LogFormat:    "text",
-		LogVerbosity: "trace",
-		Ack:          false,
-		URL:          "http://localhost:8086/write?db=default",
-		Username:     os.Getenv("INFLUX_USERNAME"),
-		Password:     os.Getenv("INFLUX_PASSWORD"),
-		Kafka:        kafkaconfig.DefaultConsumer(),
+		LogFormat:         "text",
+		LogVerbosity:      "trace",
+		Ack:               false,
+		URL:               "http://localhost:8086/write?db=default",
+		Username:          os.Getenv("INFLUX_USERNAME"),
+		Password:          os.Getenv("INFLUX_PASSWORD"),
+		MetricsListenAddr: "127.0.0.1:8080",
+		Kafka:             kafkaconfig.DefaultConsumer(),
 	}
 }
 
@@ -62,8 +95,14 @@ func init() {
 	flag.StringVar(&cfg.URL, "influxdb-url", cfg.URL, "Full URL to InfluxDB 1.7 write endpoint.")
 	flag.StringVar(&cfg.Username, "influxdb-username", cfg.Username, "InfluxDB username.")
 	flag.StringVar(&cfg.Password, "influxdb-password", cfg.Password, "InfluxDB password.")
+	flag.StringVar(&cfg.MetricsListenAddr, "metrics-listen-addr", cfg.MetricsListenAddr, "Serve metrics on this address.")
 
 	kafkaconfig.SetupFlags(&cfg.Kafka)
+
+	prometheus.MustRegister(queueSize)
+	prometheus.MustRegister(written)
+	prometheus.MustRegister(discarded)
+	prometheus.MustRegister(transientErrors)
 }
 
 func main() {
@@ -143,6 +182,7 @@ func worker(work chan Workload) {
 				workload.Logger.Infof("Wrote data to InfluxDB")
 				break
 			}
+			transientErrors.Inc()
 			retry *= 2
 			workload.Logger.Errorf("%s; retrying in %s", err, retry.String())
 			time.Sleep(retry)
@@ -176,6 +216,17 @@ func run() error {
 	// Create a goroutine that will do the actual posting to InfluxDB.
 	go worker(workloads)
 
+	// Serve metrics
+	http.Handle("/metrics", promhttp.Handler())
+	go func() {
+		err := http.ListenAndServe(cfg.MetricsListenAddr, nil)
+		if err != nil {
+			log.Errorf("fatal error in HTTP handler: %s", err)
+			log.Error("terminating application")
+			signals <- syscall.SIGTERM
+		}
+	}()
+
 	for {
 		select {
 		case sig := <-signals:
@@ -201,6 +252,7 @@ func run() error {
 
 			// Discard the message permanently.
 			if err != nil {
+				discarded.Inc()
 				logger.Errorf("Discarding incoming message due to unrecoverable error: %s", err)
 				ack(msg)
 				continue
@@ -211,6 +263,8 @@ func run() error {
 			workloadCallback := func() error {
 				err := callback()
 				if err == nil {
+					queueSize.Dec()
+					written.Inc()
 					ack(msg)
 				}
 				return err
@@ -221,6 +275,7 @@ func run() error {
 				Callback: workloadCallback,
 				Logger:   *logger,
 			}
+			queueSize.Inc()
 		}
 	}
 }
