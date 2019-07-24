@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"time"
 )
 
 type configuration struct {
@@ -21,6 +22,13 @@ type configuration struct {
 	LogVerbosity string
 	Ack          bool
 	URL          string
+}
+
+type postCallback func() error
+
+type Workload struct {
+	Callback postCallback
+	Logger   log.Entry
 }
 
 var (
@@ -57,7 +65,7 @@ func main() {
 	}
 }
 
-func prepare(msg consumer.Message) (*deployment.Event, *log.Entry, error) {
+func extract(msg consumer.Message) (*deployment.Event, *log.Entry, error) {
 	logger := log.WithFields(msg.LogFields())
 
 	event := &deployment.Event{}
@@ -74,29 +82,60 @@ func prepare(msg consumer.Message) (*deployment.Event, *log.Entry, error) {
 	return event, logger, nil
 }
 
-func request(url string, event deployment.Event) error {
+func prepare(url string, event deployment.Event) (postCallback, error) {
 	line := influx.NewLine(&event)
 	payload, err := line.Marshal()
 	if err != nil {
-		return fmt.Errorf("unable to marshal InfluxDB payload: %s", err)
+		return nil, fmt.Errorf("unable to marshal InfluxDB payload: %s", err)
 	}
 
 	body := bytes.NewReader(payload)
 	request, err := http.NewRequest("POST", url, body)
 	if err != nil {
-		return fmt.Errorf("unable to create new HTTP request object: %s", err)
+		return nil, fmt.Errorf("unable to create new HTTP request object: %s", err)
 	}
 
-	response, err := http.DefaultClient.Do(request)
-	if err != nil {
-		return fmt.Errorf("post to InfluxDB: %s", err)
+	// Create a callback function wrapping recoverable network errors.
+	// This callback will be run as many times as necessary in order to
+	// ensure the data is fully written to InfluxDB.
+	post := func() error {
+		response, err := http.DefaultClient.Do(request)
+		if err != nil {
+			return fmt.Errorf("post to InfluxDB: %s", err)
+		}
+
+		if response.StatusCode > 299 {
+			return fmt.Errorf("POST %s: %s", url, response.Status)
+		}
+
+		return nil
 	}
 
-	if response.StatusCode > 299 {
-		return fmt.Errorf("POST %s: %s", url, response.Status)
-	}
+	return post, nil
+}
 
-	return nil
+func ack(msg consumer.Message) {
+	if cfg.Ack {
+		msg.Ack()
+	}
+}
+
+// Execute incoming work (post data to InfluxDB) and retry indefinitely.
+func worker(work chan Workload) {
+	var err error
+	for workload := range work {
+		retry := time.Second * 1
+		for {
+			err = workload.Callback()
+			if err == nil {
+				workload.Logger.Infof("Wrote data to InfluxDB")
+				break
+			}
+			retry *= 2
+			workload.Logger.Errorf("%s; retrying in %s", err, retry.String())
+			time.Sleep(retry)
+		}
+	}
 }
 
 func run() error {
@@ -122,6 +161,10 @@ func run() error {
 		return err
 	}
 
+	// Create a goroutine that will do the actual posting to InfluxDB.
+	workloads := make(chan Workload, 4096)
+	go worker(workloads)
+
 	for {
 		select {
 		case sig := <-signals:
@@ -133,25 +176,39 @@ func run() error {
 				return fmt.Errorf("kafka consumer has shut down")
 			}
 
+			var callback postCallback
+
 			// Extract event data from the message.
-			// Errors are non-recoverable and can only be logged.
-			event, logger, err := prepare(msg)
+			// Errors are non-recoverable.
+			event, logger, err := extract(msg)
 			if err == nil {
 
-				// Perform the request against InfluxDB.
-				// These errors are possibly recoverable.
-				err = request(cfg.URL, *event)
+				// Prepare a closure that will post our data to InfluxDB.
+				// An error here is also non-recoverable.
+				callback, err = prepare(cfg.URL, *event)
 			}
 
+			// Discard the message permanently.
 			if err != nil {
-				logger.Error(err)
-			} else {
-				logger.Info("Successfully inserted line data into InfluxDB")
+				logger.Errorf("Discarding incoming message due to unrecoverable error: %s")
+				ack(msg)
+				continue
 			}
 
-			// Mark the message as processed.
-			if cfg.Ack {
-				msg.Ack()
+			// Create a callback function that submits data to InfluxDB and acknowledges
+			// our queue position in Kafka if successful.
+			workloadCallback := func() error {
+				err := callback()
+				if err == nil {
+					ack(msg)
+				}
+				return err
+			}
+
+			// Submit the callback function to the worker goroutine.
+			workloads <- Workload{
+				Callback: workloadCallback,
+				Logger:   *logger,
 			}
 		}
 	}
