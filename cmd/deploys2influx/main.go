@@ -29,7 +29,6 @@ var (
 	signals     chan os.Signal
 	cfg         = defaultConfig()
 	kafkaConfig = kafkaconfig.DefaultConsumer()
-	influxURL   *url.URL
 )
 
 func defaultConfig() configuration {
@@ -79,21 +78,27 @@ func prepare(msg consumer.Message) (*deployment.Event, *log.Entry, error) {
 	return event, logger, nil
 }
 
-func request(event deployment.Event) error {
+func writeurl(baseURL string) (string, error) {
+	base, err := url.Parse(baseURL)
+	if err != nil {
+		return "", fmt.Errorf("parsing InfluxDB base url: %s", err)
+	}
+	queryParams := url.Values{}
+	queryParams.Set("db", cfg.Database)
+	base.Path = "/write"
+	base.RawQuery = queryParams.Encode()
+	return base.String(), nil
+}
+
+func request(url string, event deployment.Event) error {
 	line := influx.NewLine(&event)
 	payload, err := line.Marshal()
 	if err != nil {
 		return fmt.Errorf("unable to marshal InfluxDB payload: %s", err)
 	}
 
-	queryParams := url.Values{}
-	queryParams.Set("db", cfg.Database)
-	influxURL.Path = "/write"
-	influxURL.RawQuery = queryParams.Encode()
-	postURL := influxURL.String()
-
 	body := bytes.NewReader(payload)
-	request, err := http.NewRequest("POST", postURL, body)
+	request, err := http.NewRequest("POST", url, body)
 	if err != nil {
 		return fmt.Errorf("unable to create new HTTP request object: %s", err)
 	}
@@ -104,7 +109,7 @@ func request(event deployment.Event) error {
 	}
 
 	if response.StatusCode > 299 {
-		return fmt.Errorf("POST %s: %s", postURL, response.Status)
+		return fmt.Errorf("POST %s: %s", url, response.Status)
 	}
 
 	return nil
@@ -117,9 +122,9 @@ func run() error {
 
 	log.SetOutput(os.Stdout)
 
-	influxURL, err = url.Parse(cfg.URL)
+	influxURL, err := writeurl(cfg.URL)
 	if err != nil {
-		return fmt.Errorf("parsing InfluxDB url: %s", err)
+		return err
 	}
 
 	kafkaLogger, err := logging.ConstLevel(kafkaConfig.Verbosity, cfg.LogFormat)
@@ -156,7 +161,7 @@ func run() error {
 
 				// Perform the request against InfluxDB.
 				// These errors are possibly recoverable.
-				err = request(*event)
+				err = request(influxURL, *event)
 			}
 
 			if err != nil {
