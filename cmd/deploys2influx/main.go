@@ -24,6 +24,7 @@ type configuration struct {
 	URL          string
 	Username     string
 	Password     string
+	Kafka        kafkaconfig.Consumer
 }
 
 type postCallback func() error
@@ -34,9 +35,9 @@ type Workload struct {
 }
 
 var (
-	signals     chan os.Signal
-	cfg         = defaultConfig()
-	kafkaConfig = kafkaconfig.DefaultConsumer()
+	signals   = make(chan os.Signal, 1)
+	workloads = make(chan Workload, 4096)
+	cfg       = defaultConfig()
 )
 
 func defaultConfig() configuration {
@@ -47,11 +48,12 @@ func defaultConfig() configuration {
 		URL:          "http://localhost:8086/write?db=default",
 		Username:     os.Getenv("INFLUX_USERNAME"),
 		Password:     os.Getenv("INFLUX_PASSWORD"),
+		Kafka:        kafkaconfig.DefaultConsumer(),
 	}
 }
 
 func init() {
-	signals = make(chan os.Signal, 1)
+	// Trap interrupts
 	signal.Notify(signals, os.Interrupt)
 
 	flag.StringVar(&cfg.LogFormat, "log-format", cfg.LogFormat, "Log format, either 'json' or 'text'.")
@@ -61,7 +63,7 @@ func init() {
 	flag.StringVar(&cfg.Username, "influxdb-username", cfg.Username, "InfluxDB username.")
 	flag.StringVar(&cfg.Password, "influxdb-password", cfg.Password, "InfluxDB password.")
 
-	kafkaconfig.SetupFlags(&kafkaConfig)
+	kafkaconfig.SetupFlags(&cfg.Kafka)
 }
 
 func main() {
@@ -153,9 +155,9 @@ func run() error {
 
 	flag.Parse()
 
-	log.SetOutput(os.Stdout)
+	log.SetOutput(os.Stderr)
 
-	kafkaLogger, err := logging.ConstLevel(kafkaConfig.Verbosity, cfg.LogFormat)
+	kafkaLogger, err := logging.ConstLevel(cfg.Kafka.Verbosity, cfg.LogFormat)
 	if err != nil {
 		return err
 	}
@@ -166,13 +168,12 @@ func run() error {
 		return err
 	}
 
-	kafka, err := consumer.New(kafkaConfig)
+	kafka, err := consumer.New(cfg.Kafka)
 	if err != nil {
 		return err
 	}
 
 	// Create a goroutine that will do the actual posting to InfluxDB.
-	workloads := make(chan Workload, 4096)
 	go worker(workloads)
 
 	for {
