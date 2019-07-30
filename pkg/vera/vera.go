@@ -9,21 +9,30 @@ import (
 
 // VeraPayload represents the JSON payload supported by the Vera API. All fields are required
 type VeraPayload struct {
-	Environment      string
-	Application      string
-	Version          string
-	Deployer         string
-	Environmentclass string
+	Environment      string `json:"environment"`
+	Application      string `json:"application"`
+	Version          string `json:"version"`
+	Deployer         string `json:"deployer"`
+	Environmentclass string `json:"environmentclass"`
 }
 
 // BuildVeraEvent collects data from a deployment event and creates a valid payload for POSTing to the vera api.
 func BuildVeraEvent(event *deployment.Event) VeraPayload {
+	var deployer string
+
+	if len(event.GetDeployer().GetName()) > 0 {
+		deployer = fmt.Sprintf("%s (%s)", event.GetSource().String(), event.GetDeployer().GetName())
+	} else if len(event.GetDeployer().GetIdent()) > 0 {
+		deployer = fmt.Sprintf("%s (%s)", event.GetSource().String(), event.GetDeployer().GetIdent())
+	} else {
+		deployer = event.GetSource().String()
+	}
 
 	return VeraPayload{
 		Environment:      getEnvironment(event),
 		Application:      event.GetApplication(),
 		Version:          event.GetVersion(),
-		Deployer:         fmt.Sprintf("%s ( %s %s )", event.GetSource().String(), event.GetDeployer().GetName(), event.GetDeployer().GetIdent()),
+		Deployer:         deployer,
 		Environmentclass: event.GetEnvironment().String(),
 	}
 }

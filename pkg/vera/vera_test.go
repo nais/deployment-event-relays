@@ -20,7 +20,7 @@ var eventVeraTests = []eventVeraTest{
 			Environment:      "dev-fss (default)",
 			Application:      "app",
 			Version:          "1.2.3",
-			Deployer:         "naiserator ( foo bar )",
+			Deployer:         "naiserator",
 			Environmentclass: "development",
 		},
 		event: deployment.Event{
@@ -30,17 +30,14 @@ var eventVeraTests = []eventVeraTest{
 			Application: "app",
 			Version:     "1.2.3",
 			Source:      deployment.System_naiserator,
-			Deployer: &deployment.Actor{
-				Name:  "foo",
-				Ident: "bar",
-			}},
+		},
 	},
 	{
 		data: vera.VeraPayload{
 			Environment:      "p",
 			Application:      "app",
 			Version:          "1.2.3",
-			Deployer:         "naisd ( foo  )",
+			Deployer:         "naisd (ident)",
 			Environmentclass: "production",
 		},
 		event: deployment.Event{
@@ -50,7 +47,7 @@ var eventVeraTests = []eventVeraTest{
 			Version:         "1.2.3",
 			Source:          deployment.System_naisd,
 			Deployer: &deployment.Actor{
-				Name: "foo",
+				Ident: "ident",
 			}},
 	},
 	{
@@ -58,7 +55,7 @@ var eventVeraTests = []eventVeraTest{
 			Environment:      "env",
 			Application:      "app",
 			Version:          "1.2.3",
-			Deployer:         "aura ( foo  )",
+			Deployer:         "aura (name)",
 			Environmentclass: "development",
 		},
 		event: deployment.Event{
@@ -68,7 +65,8 @@ var eventVeraTests = []eventVeraTest{
 			Environment:     deployment.Environment_development,
 			Source:          deployment.System_aura,
 			Deployer: &deployment.Actor{
-				Name: "foo",
+				Name: "name",
+				Ident: "ident",
 			}},
 	},
 }
