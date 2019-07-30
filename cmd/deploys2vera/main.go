@@ -21,6 +21,11 @@ import (
 	flag "github.com/spf13/pflag"
 )
 
+const (
+	MetricNamespace = "deployment"
+	MetricSubsystem = "deploys2vera"
+)
+
 type configuration struct {
 	LogFormat         string
 	LogVerbosity      string
@@ -45,29 +50,29 @@ var (
 	written = prometheus.NewCounter(prometheus.CounterOpts{
 		Name:      "written",
 		Help:      "Number of Vera events created",
-		Namespace: "deployment",
-		Subsystem: "deploys2vera",
+		Namespace: MetricNamespace,
+		Subsystem: MetricSubsystem,
 	})
 
 	discarded = prometheus.NewCounter(prometheus.CounterOpts{
 		Name:      "discarded",
 		Help:      "Number of vera events discarded due to unrecoverable errors",
-		Namespace: "deployment",
-		Subsystem: "deploys2vera",
+		Namespace: MetricNamespace,
+		Subsystem: MetricSubsystem,
 	})
 
 	transientErrors = prometheus.NewCounter(prometheus.CounterOpts{
 		Name:      "transient_errors",
 		Help:      "Number of recoverable errors encountered during Vera communication",
-		Namespace: "deployment",
-		Subsystem: "deploys2vera",
+		Namespace: MetricNamespace,
+		Subsystem: MetricSubsystem,
 	})
 
 	queueSize = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name:      "queue_size",
 		Help:      "Kafka messages read but not committed to Vera",
-		Namespace: "deployment",
-		Subsystem: "deploys2ivera",
+		Namespace: MetricNamespace,
+		Subsystem: MetricSubsystem,
 	})
 )
 
