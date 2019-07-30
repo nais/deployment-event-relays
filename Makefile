@@ -15,7 +15,7 @@ deploys2influx: cmd/deploys2influx/main.go
 	cd cmd/deploys2influx && go build
 	mv cmd/deploys2influx/deploys2influx bin/
 
-deploys2influx: cmd/deploys2vera/main.go
+deploys2vera: cmd/deploys2vera/main.go
 	mkdir -p bin
 	cd cmd/deploys2vera && go build
 	mv cmd/deploys2vera/deploys2vera bin/
