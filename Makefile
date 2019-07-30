@@ -1,9 +1,9 @@
 PROTOC = $(shell which protoc)
 PROTOC_GEN_GO = $(shell which protoc-gen-go)
 
-.PHONY: deploys2stdout deploys2influx bin proto
+.PHONY: deploys2stdout deploys2influx deploys2vera bin proto
 
-bin: deploys2stdout deploys2influx
+bin: deploys2stdout deploys2influx deploys2vera
 
 deploys2stdout: cmd/deploys2stdout/main.go
 	mkdir -p bin
@@ -15,6 +15,11 @@ deploys2influx: cmd/deploys2influx/main.go
 	cd cmd/deploys2influx && go build
 	mv cmd/deploys2influx/deploys2influx bin/
 
+deploys2influx: cmd/deploys2vera/main.go
+	mkdir -p bin
+	cd cmd/deploys2vera && go build
+	mv cmd/deploys2vera/deploys2vera bin/
+
 proto:
 	wget -O event.proto https://raw.githubusercontent.com/navikt/protos/master/deployment/event.proto
 	$(PROTOC) --plugin=$(PROTOC_GEN_GO) --go_out=. event.proto
@@ -24,6 +29,7 @@ proto:
 alpine:
 	go build -a -installsuffix cgo -o deploys2stdout cmd/deploys2stdout/main.go
 	go build -a -installsuffix cgo -o deploys2influx cmd/deploys2influx/main.go
+	go build -a -installsuffix cgo -o deploys2vera cmd/deploys2vera/main.go
 
 test:
 	go test ./...
