@@ -3,7 +3,6 @@ package vera
 import (
 	"encoding/json"
 	"fmt"
-
 	"github.com/navikt/deployment-event-relays/pkg/deployment"
 )
 

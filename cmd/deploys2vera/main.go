@@ -157,8 +157,6 @@ func prepare(url string, event deployment.Event) (postCallback, error) {
 			return fmt.Errorf("POST %s: %s", url, response.Status)
 		}
 
-		log.Infof("**** Vera callback got  %s", response.StatusCode)
-
 		return nil
 	}
 
