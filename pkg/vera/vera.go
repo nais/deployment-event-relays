@@ -27,12 +27,14 @@ func BuildVeraEvent(event *deployment.Event) Payload {
 	}
 }
 
+
 func getEnvironment(event *deployment.Event) string {
 	if event.GetSkyaEnvironment() != "" {
 		return event.GetSkyaEnvironment()
 	}
 	return fmt.Sprintf("%s (%s)", event.GetCluster(), event.GetNamespace())
 }
+
 
 func getDeployer(event *deployment.Event) string {
 	if len(event.GetDeployer().GetName()) > 0 {

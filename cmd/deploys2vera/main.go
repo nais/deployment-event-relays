@@ -244,6 +244,11 @@ func run() error {
 			event, logger, err := extract(msg)
 			if err == nil {
 
+				if event.GetRolloutStatus() != deployment.RolloutStatus_complete {
+					logger.Infof("Discarding message because rollout status is != complete")
+					ack(msg)
+				}
+
 				// Prepare a closure that will post our data to Vera.
 				// An error here is also non-recoverable.
 				callback, err = prepare(cfg.URL, *event)
