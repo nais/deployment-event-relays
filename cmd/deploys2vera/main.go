@@ -81,7 +81,7 @@ func defaultConfig() configuration {
 		LogFormat:         "text",
 		LogVerbosity:      "trace",
 		Ack:               false,
-		URL:               "http://localhost:8086/api/v1/deploylog",
+		URL:               "http://localhost:6969/api/v1/deploylog",
 		MetricsListenAddr: "127.0.0.1:8080",
 		Kafka:             kafkaconfig.DefaultConsumer(),
 	}
@@ -131,6 +131,7 @@ func extract(msg consumer.Message) (*deployment.Event, *log.Entry, error) {
 
 func prepare(url string, event deployment.Event) (postCallback, error) {
 	veraEvent := vera.BuildVeraEvent(&event)
+	log.Infof("Posting event to vera %s", veraEvent)
 	payload, err := veraEvent.Marshal()
 	if err != nil {
 		return nil, fmt.Errorf("unable to marshal Vera payload: %s", err)
@@ -141,6 +142,7 @@ func prepare(url string, event deployment.Event) (postCallback, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to create new HTTP request object: %s", err)
 	}
+	request.Header.Set("Content-Type", "application/json")
 
 	// Create a callback function wrapping recoverable network errors.
 	// This callback will be run as many times as necessary in order to
@@ -154,6 +156,8 @@ func prepare(url string, event deployment.Event) (postCallback, error) {
 		if response.StatusCode > 299 {
 			return fmt.Errorf("POST %s: %s", url, response.Status)
 		}
+
+		log.Infof("**** Vera callback got  %s", response.StatusCode)
 
 		return nil
 	}

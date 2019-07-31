@@ -10,13 +10,13 @@ import (
 
 type eventVeraTest struct {
 	event deployment.Event
-	data  vera.VeraPayload
+	data  vera.Payload
 	err   error
 }
 
 var eventVeraTests = []eventVeraTest{
 	{
-		data: vera.VeraPayload{
+		data: vera.Payload{
 			Environment:      "dev-fss (default)",
 			Application:      "app",
 			Version:          "1.2.3",
@@ -33,7 +33,7 @@ var eventVeraTests = []eventVeraTest{
 		},
 	},
 	{
-		data: vera.VeraPayload{
+		data: vera.Payload{
 			Environment:      "p",
 			Application:      "app",
 			Version:          "1.2.3",
@@ -51,7 +51,7 @@ var eventVeraTests = []eventVeraTest{
 			}},
 	},
 	{
-		data: vera.VeraPayload{
+		data: vera.Payload{
 			Environment:      "env",
 			Application:      "app",
 			Version:          "1.2.3",
@@ -65,13 +65,13 @@ var eventVeraTests = []eventVeraTest{
 			Environment:     deployment.Environment_development,
 			Source:          deployment.System_aura,
 			Deployer: &deployment.Actor{
-				Name: "name",
+				Name:  "name",
 				Ident: "ident",
 			}},
 	},
 }
 
-func TestEventLineData(t *testing.T) {
+func TestVeraPayload(t *testing.T) {
 	for _, test := range eventVeraTests {
 		veraPayload := vera.BuildVeraEvent(&test.event)
 		assert.Equal(t, test.data, veraPayload)
