@@ -131,8 +131,8 @@ func extract(msg consumer.Message) (*deployment.Event, *log.Entry, error) {
 
 func prepare(url string, event deployment.Event) (postCallback, error) {
 	veraEvent := vera.BuildVeraEvent(&event)
-	log.Infof("Posting event to vera %s", veraEvent)
 	payload, err := veraEvent.Marshal()
+	log.Infof("Posting payload to vera %s", payload)
 	if err != nil {
 		return nil, fmt.Errorf("unable to marshal Vera payload: %s", err)
 	}
@@ -165,6 +165,7 @@ func prepare(url string, event deployment.Event) (postCallback, error) {
 
 func ack(msg consumer.Message) {
 	if cfg.Ack {
+		log.Infof("Ack offset %d", msg.M.Offset)
 		msg.Ack()
 	}
 }
