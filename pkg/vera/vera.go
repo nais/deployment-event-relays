@@ -3,7 +3,6 @@ package vera
 import (
 	"encoding/json"
 	"fmt"
-	log "github.com/sirupsen/logrus"
 
 	"github.com/navikt/deployment-event-relays/pkg/deployment"
 )
@@ -19,21 +18,12 @@ type Payload struct {
 
 // BuildVeraEvent collects data from a deployment event and creates a valid payload for POSTing to the vera api.
 func BuildVeraEvent(event *deployment.Event) Payload {
-	var deployer string
-
-	if len(event.GetDeployer().GetName()) > 0 {
-		deployer = fmt.Sprintf("%s (%s)", event.GetSource().String(), event.GetDeployer().GetName())
-	} else if len(event.GetDeployer().GetIdent()) > 0 {
-		deployer = fmt.Sprintf("%s (%s)", event.GetSource().String(), event.GetDeployer().GetIdent())
-	} else {
-		deployer = event.GetSource().String()
-	}
 
 	return Payload{
 		Environment:      getEnvironment(event),
 		Application:      event.GetApplication(),
 		Version:          event.GetVersion(),
-		Deployer:         deployer,
+		Deployer:         getDeployer(event),
 		Environmentclass: event.GetEnvironment().String(),
 	}
 }
@@ -43,6 +33,16 @@ func getEnvironment(event *deployment.Event) string {
 		return event.GetSkyaEnvironment()
 	}
 	return fmt.Sprintf("%s (%s)", event.GetCluster(), event.GetNamespace())
+}
+
+func getDeployer(event *deployment.Event) string {
+	if len(event.GetDeployer().GetName()) > 0 {
+		return fmt.Sprintf("%s (%s)", event.GetSource().String(), event.GetDeployer().GetName())
+	} else if len(event.GetDeployer().GetIdent()) > 0 {
+		return fmt.Sprintf("%s (%s)", event.GetSource().String(), event.GetDeployer().GetIdent())
+	} else {
+		return event.GetSource().String()
+	}
 }
 
 // Marshal VeraPayload struct to JSON
