@@ -150,6 +150,7 @@ func prepare(url, username, password string, event deployment.Event) (postCallba
 	// This callback will be run as many times as necessary in order to
 	// ensure the data is fully written to InfluxDB.
 	post := func() error {
+		body.Reset(payload)
 		response, err := http.DefaultClient.Do(request)
 		if err != nil {
 			return fmt.Errorf("post to InfluxDB: %s", err)

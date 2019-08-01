@@ -148,6 +148,7 @@ func prepare(url string, event deployment.Event) (postCallback, error) {
 	// This callback will be run as many times as necessary in order to
 	// ensure the data is fully written to Vera.
 	post := func() error {
+		body.Reset(payload)
 		response, err := http.DefaultClient.Do(request)
 		if err != nil {
 			return fmt.Errorf("post to Vera: %s", err)
