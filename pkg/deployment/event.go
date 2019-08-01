@@ -28,6 +28,7 @@ func (m *Event) Flatten() map[string]string {
 		"team":             m.GetTeam(),
 		"rollout_status":   m.GetRolloutStatus().String(),
 		"environment":      m.GetEnvironment().String(),
+		"skya_environment": m.GetSkyaEnvironment(),
 		"namespace":        m.GetNamespace(),
 		"cluster":          m.GetCluster(),
 		"application":      m.GetApplication(),

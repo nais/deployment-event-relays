@@ -1,11 +1,12 @@
 package influx_test
 
 import (
+	"testing"
+
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/navikt/deployment-event-relays/pkg/deployment"
 	"github.com/navikt/deployment-event-relays/pkg/influx"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 type eventLineTest struct {
@@ -22,7 +23,7 @@ var eventLineTests = []eventLineTest{
 	{
 		data: `nais.deployment,application=app,cluster=clust,environment=development,namespace=ns,platform_type=nais,rollout_status=complete,team=tea ` +
 			`correlation_id="id",deployer_email="bar",deployer_ident="baz",deployer_name="foo",` +
-			`image_hash="impossible",image_name="docker.io/foo/bar",image_tag="latest",source="naiserator",version="1.2.3" 123456789000000000` + "\n",
+			`image_hash="impossible",image_name="docker.io/foo/bar",image_tag="latest",skya_environment="skya",source="naiserator",version="1.2.3" 123456789000000000` + "\n",
 		event: deployment.Event{
 			Application:   "app",
 			Cluster:       "clust",
