@@ -13,7 +13,7 @@ type Payload struct {
 	Application      string `json:"application"`
 	Version          string `json:"version"`
 	Deployer         string `json:"deployedBy"`
-	Environmentclass string `json:"environmentclass"`
+	Environmentclass string `json:"environmentClass"`
 }
 
 // BuildVeraEvent collects data from a deployment event and creates a valid payload for POSTing to the vera api.
