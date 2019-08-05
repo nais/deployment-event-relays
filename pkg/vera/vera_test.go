@@ -17,7 +17,7 @@ type eventVeraTest struct {
 var eventVeraTests = []eventVeraTest{
 	{
 		data: vera.Payload{
-			Environment:      "dev-fss (default)",
+			Environment:      "dev-fss:default",
 			Application:      "app",
 			Version:          "1.2.3",
 			Deployer:         "naiserator",
