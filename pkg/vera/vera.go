@@ -3,6 +3,7 @@ package vera
 import (
 	"encoding/json"
 	"fmt"
+
 	"github.com/navikt/deployment-event-relays/pkg/deployment"
 )
 
@@ -23,10 +24,9 @@ func BuildVeraEvent(event *deployment.Event) Payload {
 		Application:      event.GetApplication(),
 		Version:          event.GetVersion(),
 		Deployer:         getDeployer(event),
-		Environmentclass: event.GetEnvironment().String(),
+		Environmentclass: getEnvironmentClass(event),
 	}
 }
-
 
 func getEnvironment(event *deployment.Event) string {
 	if event.GetSkyaEnvironment() != "" {
@@ -34,7 +34,6 @@ func getEnvironment(event *deployment.Event) string {
 	}
 	return fmt.Sprintf("%s (%s)", event.GetCluster(), event.GetNamespace())
 }
-
 
 func getDeployer(event *deployment.Event) string {
 	if len(event.GetDeployer().GetName()) > 0 {
@@ -44,6 +43,14 @@ func getDeployer(event *deployment.Event) string {
 	} else {
 		return event.GetSource().String()
 	}
+}
+
+func getEnvironmentClass(event *deployment.Event) string {
+	if event.GetEnvironment() == deployment.Environment_production {
+		return "p"
+	}
+	return "q"
+
 }
 
 // Marshal VeraPayload struct to JSON

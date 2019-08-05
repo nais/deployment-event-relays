@@ -21,7 +21,7 @@ var eventVeraTests = []eventVeraTest{
 			Application:      "app",
 			Version:          "1.2.3",
 			Deployer:         "naiserator",
-			Environmentclass: "development",
+			Environmentclass: "q",
 		},
 		event: deployment.Event{
 			Cluster:     "dev-fss",
@@ -38,7 +38,7 @@ var eventVeraTests = []eventVeraTest{
 			Application:      "app",
 			Version:          "1.2.3",
 			Deployer:         "naisd (ident)",
-			Environmentclass: "production",
+			Environmentclass: "p",
 		},
 		event: deployment.Event{
 			SkyaEnvironment: "p",
@@ -56,7 +56,7 @@ var eventVeraTests = []eventVeraTest{
 			Application:      "app",
 			Version:          "1.2.3",
 			Deployer:         "aura (name)",
-			Environmentclass: "development",
+			Environmentclass: "q",
 		},
 		event: deployment.Event{
 			SkyaEnvironment: "env",
