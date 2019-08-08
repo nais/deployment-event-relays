@@ -31,7 +31,10 @@ func BuildVeraEvent(event *deployment.Event) Payload {
 func getEnvironment(event *deployment.Event) string {
 	if event.GetSkyaEnvironment() != "" {
 		return event.GetSkyaEnvironment()
+	} else if event.GetEnvironment() == deployment.Environment_production && event.GetSource() == deployment.System_naiserator {
+		return "p"
 	}
+
 	return fmt.Sprintf("%s:%s", event.GetNamespace(), event.GetCluster())
 }
 

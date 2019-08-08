@@ -87,6 +87,21 @@ var eventVeraTests = []eventVeraTest{
 				Ident: "ident",
 			}},
 	},
+	{
+		data: vera.Payload{
+			Environment:      "p",
+			Application:      "app",
+			Version:          "1.2.3",
+			Deployer:         "naiserator",
+			Environmentclass: "p",
+		},
+		event: deployment.Event{
+			Application: "app",
+			Environment: deployment.Environment_production,
+			Source:      deployment.System_naiserator,
+			Version:     "1.2.3",
+		},
+	},
 }
 
 func TestVeraPayload(t *testing.T) {
