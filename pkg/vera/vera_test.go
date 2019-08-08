@@ -69,6 +69,24 @@ var eventVeraTests = []eventVeraTest{
 				Ident: "ident",
 			}},
 	},
+	{
+		data: vera.Payload{
+			Environment:      "env",
+			Application:      "app",
+			Version:          "unknown",
+			Deployer:         "aura (name)",
+			Environmentclass: "q",
+		},
+		event: deployment.Event{
+			SkyaEnvironment: "env",
+			Application:     "app",
+			Environment:     deployment.Environment_development,
+			Source:          deployment.System_aura,
+			Deployer: &deployment.Actor{
+				Name:  "name",
+				Ident: "ident",
+			}},
+	},
 }
 
 func TestVeraPayload(t *testing.T) {
