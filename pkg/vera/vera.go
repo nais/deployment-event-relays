@@ -32,7 +32,7 @@ func getEnvironment(event *deployment.Event) string {
 	if event.GetSkyaEnvironment() != "" {
 		return event.GetSkyaEnvironment()
 	}
-	return fmt.Sprintf("%s:%s", event.GetCluster(), event.GetNamespace())
+	return fmt.Sprintf("%s:%s", event.GetNamespace(), event.GetCluster())
 }
 
 func getVersion(event *deployment.Event) string {
