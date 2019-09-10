@@ -47,10 +47,14 @@ func getVersion(event *deployment.Event) string {
 }
 
 func getDeployer(event *deployment.Event) string {
+	source := event.GetSource().String()
+
 	if len(event.GetDeployer().GetName()) > 0 {
-		return fmt.Sprintf("%s (%s)", event.GetSource().String(), event.GetDeployer().GetName())
+		return fmt.Sprintf("%s (%s)", source, event.GetDeployer().GetName())
 	} else if len(event.GetDeployer().GetIdent()) > 0 {
-		return fmt.Sprintf("%s (%s)", event.GetSource().String(), event.GetDeployer().GetIdent())
+		return fmt.Sprintf("%s (%s)", source, event.GetDeployer().GetIdent())
+	} else if len(event.GetTeam()) > 0 {
+		return fmt.Sprintf("%s (%s)", source, event.GetTeam())
 	} else {
 		return event.GetSource().String()
 	}

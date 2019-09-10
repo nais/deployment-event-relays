@@ -34,6 +34,24 @@ var eventVeraTests = []eventVeraTest{
 	},
 	{
 		data: vera.Payload{
+			Environment:      "default:dev-fss",
+			Application:      "app",
+			Version:          "1.2.3",
+			Deployer:         "naiserator (super-team)",
+			Environmentclass: "q",
+		},
+		event: deployment.Event{
+			Cluster:     "dev-fss",
+			Namespace:   "default",
+			Environment: deployment.Environment_development,
+			Application: "app",
+			Version:     "1.2.3",
+			Team:        "super-team",
+			Source:      deployment.System_naiserator,
+		},
+	},
+	{
+		data: vera.Payload{
 			Environment:      "p",
 			Application:      "app",
 			Version:          "1.2.3",
