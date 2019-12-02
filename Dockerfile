@@ -15,3 +15,4 @@ WORKDIR /app
 COPY --from=builder /src/deploys2stdout /app/deploys2stdout
 COPY --from=builder /src/deploys2influx /app/deploys2influx
 COPY --from=builder /src/deploys2vera /app/deploys2vera
+COPY --from=builder /src/deploys2nora /app/deploys2nora
