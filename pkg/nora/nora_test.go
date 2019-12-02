@@ -14,118 +14,55 @@ type eventNoraTest struct {
 	err   error
 }
 
-var eventVeraTests = []eventNoraTest{
+var eventNoraTests = []eventNoraTest{
 	{
 		data: nora.Payload{
+			Cluster: "prod-fss",
+			Kilde:   "naiserator",
 			Name:    "nora",
 			Team:    "myteam",
-			Cluster: "prod-fss",
 			Zone:    "fss",
-			Kilde:   "naiserator",
 		},
 		event: deployment.Event{
-			Cluster:     "prod-fss",
-			Namespace:   "default",
-			Environment: deployment.Environment_development,
 			Application: "nora",
-			Team:"myteam",
-			Version:     "1.2.3",
+			Cluster:     "prod-fss",
 			Source:      deployment.System_naiserator,
+			Team:        "myteam",
 		},
 	},
 	{
 		data: nora.Payload{
-			Environment:      "default:dev-fss",
-			Application:      "app",
-			Version:          "1.2.3",
-			Deployer:         "naiserator (super-team)",
-			Environmentclass: "q",
+			Cluster: "foobar-gcp",
+			Kilde:   "naisd",
+			Name:    "foo",
+			Team:    "bar",
+			Zone:    "gcp",
 		},
 		event: deployment.Event{
-			Cluster:     "dev-fss",
-			Namespace:   "default",
-			Environment: deployment.Environment_development,
-			Application: "app",
-			Version:     "1.2.3",
-			Team:        "super-team",
-			Source:      deployment.System_naiserator,
+			Application: "foo",
+			Cluster:     "foobar-gcp",
+			Source:      deployment.System_naisd,
+			Team:        "bar",
 		},
 	},
 	{
 		data: nora.Payload{
-			Environment:      "p",
-			Application:      "app",
-			Version:          "1.2.3",
-			Deployer:         "naisd (ident)",
-			Environmentclass: "p",
+			Cluster: "",
+			Kilde:   "aura",
+			Name:    "foo",
+			Team:    "",
+			Zone:    "",
 		},
 		event: deployment.Event{
-			SkyaEnvironment: "p",
-			Environment:     deployment.Environment_production,
-			Application:     "app",
-			Version:         "1.2.3",
-			Source:          deployment.System_naisd,
-			Deployer: &deployment.Actor{
-				Ident: "ident",
-			}},
-	},
-	{
-		data: nora.Payload{
-			Environment:      "env",
-			Application:      "app",
-			Version:          "1.2.3",
-			Deployer:         "aura (name)",
-			Environmentclass: "q",
-		},
-		event: deployment.Event{
-			SkyaEnvironment: "env",
-			Application:     "app",
-			Version:         "1.2.3",
-			Environment:     deployment.Environment_development,
-			Source:          deployment.System_aura,
-			Deployer: &deployment.Actor{
-				Name:  "name",
-				Ident: "ident",
-			}},
-	},
-	{
-		data: nora.Payload{
-			Environment:      "env",
-			Application:      "app",
-			Version:          "unknown",
-			Deployer:         "aura (name)",
-			Environmentclass: "q",
-		},
-		event: deployment.Event{
-			SkyaEnvironment: "env",
-			Application:     "app",
-			Environment:     deployment.Environment_development,
-			Source:          deployment.System_aura,
-			Deployer: &deployment.Actor{
-				Name:  "name",
-				Ident: "ident",
-			}},
-	},
-	{
-		data: nora.Payload{
-			Environment:      "p",
-			Application:      "app",
-			Version:          "1.2.3",
-			Deployer:         "naiserator",
-			Environmentclass: "p",
-		},
-		event: deployment.Event{
-			Application: "app",
-			Environment: deployment.Environment_production,
-			Source:      deployment.System_naiserator,
-			Version:     "1.2.3",
+			Application: "foo",
+			Source:      deployment.System_aura,
 		},
 	},
 }
 
-func TestVeraPayload(t *testing.T) {
-	for _, test := range eventVeraTests {
-		noraPayload := nora.BuildVeraEvent(&test.event)
+func TestNoraPayload(t *testing.T) {
+	for _, test := range eventNoraTests {
+		noraPayload := nora.BuildEvent(&test.event)
 		assert.Equal(t, test.data, noraPayload)
 	}
 }

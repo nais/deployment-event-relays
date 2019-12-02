@@ -56,14 +56,14 @@ var (
 
 	discarded = prometheus.NewCounter(prometheus.CounterOpts{
 		Name:      "discarded",
-		Help:      "Number of nora events discarded due to unrecoverable errors",
+		Help:      "Number of nora events discarded due to unreconorable errors",
 		Namespace: MetricNamespace,
 		Subsystem: MetricSubsystem,
 	})
 
 	transientErrors = prometheus.NewCounter(prometheus.CounterOpts{
 		Name:      "transient_errors",
-		Help:      "Number of recoverable errors encountered during Nora communication",
+		Help:      "Number of reconorable errors encountered during Nora communication",
 		Namespace: MetricNamespace,
 		Subsystem: MetricSubsystem,
 	})
@@ -81,7 +81,7 @@ func defaultConfig() configuration {
 		LogFormat:         "text",
 		LogVerbosity:      "trace",
 		Ack:               false,
-		URL:               "http://localhost:6969/api/v1/deploylog",
+		URL:               "http://localhost:8080/api/apps",
 		MetricsListenAddr: "127.0.0.1:8080",
 		Kafka:             kafkaconfig.DefaultConsumer(),
 	}
@@ -94,7 +94,7 @@ func init() {
 	flag.StringVar(&cfg.LogFormat, "log-format", cfg.LogFormat, "Log format, either 'json' or 'text'.")
 	flag.StringVar(&cfg.LogVerbosity, "log-verbosity", cfg.LogVerbosity, "Logging verbosity level.")
 	flag.BoolVar(&cfg.Ack, "kafka-ack", cfg.Ack, "Acknowledge messages in Kafka queue, i.e. store consumer group position.")
-	flag.StringVar(&cfg.URL, "nora-url", cfg.URL, "Full URL to nora api")
+	flag.StringVar(&cfg.URL, "nora-url", cfg.URL, "Full URL to Nora api")
 	flag.StringVar(&cfg.MetricsListenAddr, "metrics-listen-addr", cfg.MetricsListenAddr, "Serve metrics on this address.")
 
 	kafkaconfig.SetupFlags(&cfg.Kafka)
@@ -130,9 +130,9 @@ func extract(msg consumer.Message) (*deployment.Event, *log.Entry, error) {
 }
 
 func prepare(url string, event deployment.Event) (postCallback, error) {
-	veraEvent := nora.BuildVeraEvent(&event)
-	payload, err := veraEvent.Marshal()
-	log.Infof("Posting payload to nora %s", payload)
+	noraEvent := nora.BuildEvent(&event)
+	payload, err := noraEvent.Marshal()
+	log.Infof("Posting payload to Nora %s", payload)
 	if err != nil {
 		return nil, fmt.Errorf("unable to marshal Nora payload: %s", err)
 	}
@@ -144,7 +144,7 @@ func prepare(url string, event deployment.Event) (postCallback, error) {
 	}
 	request.Header.Set("Content-Type", "application/json")
 
-	// Create a callback function wrapping recoverable network errors.
+	// Create a callback function wrapping reconorable network errors.
 	// This callback will be run as many times as necessary in order to
 	// ensure the data is fully written to Nora.
 	post := func() error {
@@ -154,11 +154,14 @@ func prepare(url string, event deployment.Event) (postCallback, error) {
 			return fmt.Errorf("post to Nora: %s", err)
 		}
 
-		if response.StatusCode > 299 {
+		switch response.StatusCode {
+		case http.StatusCreated: // Application created
+			return nil
+		case http.StatusUnprocessableEntity: // Application is already registered
+			return nil
+		default:
 			return fmt.Errorf("POST %s: %s", url, response.Status)
 		}
-
-		return nil
 	}
 
 	return post, nil
@@ -241,7 +244,7 @@ func run() error {
 			var callback postCallback
 
 			// Extract event data from the message.
-			// Errors are non-recoverable.
+			// Errors are non-reconorable.
 			event, logger, err := extract(msg)
 			if err == nil {
 
@@ -251,7 +254,7 @@ func run() error {
 				}
 
 				// Prepare a closure that will post our data to Nora.
-				// An error here is also non-recoverable.
+				// An error here is also non-reconorable.
 				callback, err = prepare(cfg.URL, *event)
 			}
 
