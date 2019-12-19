@@ -1,9 +1,9 @@
 PROTOC = $(shell which protoc)
 PROTOC_GEN_GO = $(shell which protoc-gen-go)
 
-.PHONY: deploys2stdout deploys2influx deploys2vera deploy2nora bin proto
+.PHONY: deploys2stdout deploys2influx deploys2vera deploys2nora bin proto
 
-bin: deploys2stdout deploys2influx deploys2vera deploy2nora
+bin: deploys2stdout deploys2influx deploys2vera deploys2nora
 
 deploys2stdout: cmd/deploys2stdout/main.go
 	mkdir -p bin

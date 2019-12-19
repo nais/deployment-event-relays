@@ -56,14 +56,14 @@ var (
 
 	discarded = prometheus.NewCounter(prometheus.CounterOpts{
 		Name:      "discarded",
-		Help:      "Number of nora events discarded due to unreconorable errors",
+		Help:      "Number of nora events discarded due to unrecoverable errors",
 		Namespace: MetricNamespace,
 		Subsystem: MetricSubsystem,
 	})
 
 	transientErrors = prometheus.NewCounter(prometheus.CounterOpts{
 		Name:      "transient_errors",
-		Help:      "Number of reconorable errors encountered during Nora communication",
+		Help:      "Number of recoverable errors encountered during Nora communication",
 		Namespace: MetricNamespace,
 		Subsystem: MetricSubsystem,
 	})
@@ -130,6 +130,10 @@ func extract(msg consumer.Message) (*deployment.Event, *log.Entry, error) {
 }
 
 func prepare(url string, event deployment.Event) (postCallback, error) {
+	if event.GetEnvironment() != deployment.Environment_production {
+		return nil, fmt.Errorf("event does not belong to production")
+	}
+
 	noraEvent := nora.BuildEvent(&event)
 	payload, err := noraEvent.Marshal()
 	log.Infof("Posting payload to Nora %s", payload)
@@ -144,12 +148,13 @@ func prepare(url string, event deployment.Event) (postCallback, error) {
 	}
 	request.Header.Set("Content-Type", "application/json")
 
-	// Create a callback function wrapping reconorable network errors.
+	// Create a callback function wrapping recoverable network errors.
 	// This callback will be run as many times as necessary in order to
 	// ensure the data is fully written to Nora.
 	post := func() error {
 		body.Reset(payload)
 		response, err := http.DefaultClient.Do(request)
+		defer response.Body.Close()
 		if err != nil {
 			return fmt.Errorf("post to Nora: %s", err)
 		}
@@ -244,7 +249,7 @@ func run() error {
 			var callback postCallback
 
 			// Extract event data from the message.
-			// Errors are non-reconorable.
+			// Errors are non-recoverable.
 			event, logger, err := extract(msg)
 			if err == nil {
 
@@ -254,7 +259,7 @@ func run() error {
 				}
 
 				// Prepare a closure that will post our data to Nora.
-				// An error here is also non-reconorable.
+				// An error here is also non-recoverable.
 				callback, err = prepare(cfg.URL, *event)
 			}
 
