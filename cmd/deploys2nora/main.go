@@ -160,6 +160,8 @@ func prepare(url string, event deployment.Event) (postCallback, error) {
 		}
 
 		switch response.StatusCode {
+		case http.StatusOK: // Application updated
+			return nil
 		case http.StatusCreated: // Application created
 			return nil
 		case http.StatusUnprocessableEntity: // Application is already registered
