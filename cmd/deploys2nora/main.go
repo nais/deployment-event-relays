@@ -160,7 +160,11 @@ func prepare(url string, event deployment.Event) (postCallback, error) {
 		}
 
 		switch response.StatusCode {
+		case http.StatusOK: // Application created
+			return nil
 		case http.StatusCreated: // Application created
+			return nil
+		case http.StatusForbidden: // Writing null team name to entry with team registered
 			return nil
 		case http.StatusUnprocessableEntity: // Application is already registered
 			return nil
