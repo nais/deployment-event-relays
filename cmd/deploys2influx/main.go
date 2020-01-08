@@ -13,6 +13,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"os/signal"
@@ -155,13 +156,15 @@ func prepare(url, username, password string, event deployment.Event) (postCallba
 		if err != nil {
 			return fmt.Errorf("post to InfluxDB: %s", err)
 		}
+		bodyLoad, _ := ioutil.ReadAll(response.Body)
 
 		if response.StatusCode > 299 {
 			raw, _ := line.Marshal()
 			log.WithFields(log.Fields{
 				"raw_payload":    string(raw),
+				"error_response": bodyLoad,
 				"correlation_id": event.GetCorrelationID(),
-			}).Debugf("NOTE: raw payload included here for %s", event.GetCorrelationID())
+			}).Debugf("NOTE: raw payload and output included here for %s", event.GetCorrelationID())
 
 			return fmt.Errorf("POST %s: %s", url, response.Status)
 		}
