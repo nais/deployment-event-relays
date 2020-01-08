@@ -157,6 +157,11 @@ func prepare(url, username, password string, event deployment.Event) (postCallba
 		}
 
 		if response.StatusCode > 299 {
+			log.WithFields(log.Fields{
+				"raw_payload":    line,
+				"correlation_id": event.GetCorrelationID(),
+			}).Debugf("NOTE: raw payload included here for %s", event.GetCorrelationID())
+
 			return fmt.Errorf("POST %s: %s", url, response.Status)
 		}
 
