@@ -175,7 +175,7 @@ func ack(msg consumer.Message) {
 func worker(work chan Workload) {
 	var err error
 	for workload := range work {
-		retry := time.Second * 1
+		retry := 120
 		for {
 			err = workload.Callback()
 			if err == nil {
@@ -183,7 +183,6 @@ func worker(work chan Workload) {
 				break
 			}
 			transientErrors.Inc()
-			retry *= 2
 			workload.Logger.Errorf("%s; retrying in %s", err, retry.String())
 			time.Sleep(retry)
 		}
