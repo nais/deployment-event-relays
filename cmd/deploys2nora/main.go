@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -43,6 +44,8 @@ type Workload struct {
 }
 
 var (
+	ErrNotProduction = errors.New("event does not belong to production")
+
 	signals   = make(chan os.Signal, 1)
 	workloads = make(chan Workload, 4096)
 	cfg       = defaultConfig()
@@ -131,7 +134,7 @@ func extract(msg consumer.Message) (*deployment.Event, *log.Entry, error) {
 
 func prepare(url string, event deployment.Event) (postCallback, error) {
 	if event.GetEnvironment() != deployment.Environment_production {
-		return nil, fmt.Errorf("event does not belong to production")
+		return nil, ErrNotProduction
 	}
 
 	noraEvent := nora.BuildEvent(&event)
@@ -270,9 +273,7 @@ func run() error {
 			// Discard the message permanently.
 			if err != nil {
 				discarded.Inc()
-				if err.Error() == "event does not belong to production" {
-					logger.Info("Discarding incoming message due to event not belonging to production")
-				} else {
+				if err != ErrNotProduction {
 					logger.Errorf("Discarding incoming message due to unrecoverable error: %s", err)
 				}
 				ack(msg)
