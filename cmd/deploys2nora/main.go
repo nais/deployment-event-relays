@@ -270,7 +270,11 @@ func run() error {
 			// Discard the message permanently.
 			if err != nil {
 				discarded.Inc()
-				logger.Errorf("Discarding incoming message due to unrecoverable error: %s", err)
+				if err.Error() == "event does not belong to production" {
+					logger.Info("Discarding incoming message due to event not belonging to production")
+				} else {
+					logger.Errorf("Discarding incoming message due to unrecoverable error: %s", err)
+				}
 				ack(msg)
 				continue
 			}
