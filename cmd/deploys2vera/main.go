@@ -246,6 +246,7 @@ func run() error {
 				if event.GetRolloutStatus() != deployment.RolloutStatus_complete {
 					logger.Infof("Discarding message because rollout status is != complete")
 					ack(msg)
+					continue
 				}
 
 				// Prepare a closure that will post our data to Vera.
