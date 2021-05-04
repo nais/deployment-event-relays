@@ -1,0 +1,29 @@
+apiVersion: nais.io/v1alpha1
+kind: Application
+metadata:
+  name: deployment-event-relays
+  namespace: aura
+  labels:
+    team: aura
+spec:
+  image: {{ image }}
+  port: 8080
+  replicas:
+    min: 1
+    max: 1
+  prometheus:
+    enabled: false
+    path: /metrics
+  resources:
+    limits:
+      cpu: 500m
+      memory: 64Mi
+    requests:
+      cpu: 200m
+      memory: 64Mi
+  envFrom:
+    - secret: deployment-event-relays
+  webproxy: false
+  skipCaBundle: false
+  kafka:
+    pool: {{ kafka_pool }}
