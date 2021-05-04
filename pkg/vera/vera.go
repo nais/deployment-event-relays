@@ -1,10 +1,13 @@
 package vera
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"net/http"
 
 	"github.com/navikt/deployment-event-relays/pkg/deployment"
+	log "github.com/sirupsen/logrus"
 )
 
 // Payload represents the JSON payload supported by the Vera API. All fields are required
@@ -16,9 +19,46 @@ type Payload struct {
 	Environmentclass string `json:"environmentClass"`
 }
 
+type Relay struct {
+	URL string
+}
+
+func (r *Relay) Process(event *deployment.Event) (retry bool, err error) {
+	if event.GetRolloutStatus() != deployment.RolloutStatus_complete {
+		return false, fmt.Errorf("discarding message because rollout status is != complete")
+	}
+
+	veraEvent := BuildVeraEvent(event)
+	payload, err := veraEvent.Marshal()
+	log.Infof("Posting payload to Vera: %s", payload)
+	if err != nil {
+		return false, fmt.Errorf("marshal Vera payload: %s", err)
+	}
+
+	body := bytes.NewReader(payload)
+	request, err := http.NewRequest("POST", r.URL, body)
+	if err != nil {
+		return true, fmt.Errorf("unable to create new HTTP request object: %s", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+
+	// Create a callback function wrapping recoverable network errors.
+	// This callback will be run as many times as necessary in order to
+	// ensure the data is fully written to Vera.
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		return true, fmt.Errorf("post to Vera: %s", err)
+	}
+
+	if response.StatusCode > 299 {
+		return true, fmt.Errorf("POST %s: %s", r.URL, response.Status)
+	}
+
+	return false, nil
+}
+
 // BuildVeraEvent collects data from a deployment event and creates a valid payload for POSTing to the vera api.
 func BuildVeraEvent(event *deployment.Event) Payload {
-
 	return Payload{
 		Environment:      getEnvironment(event),
 		Application:      event.GetApplication(),
