@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
@@ -59,6 +60,7 @@ func run() error {
 	config.BindFlags(cfg)
 
 	conftools.Initialize("DER")
+	config.BindNAIS()
 	err := conftools.Load(cfg)
 	if err != nil {
 		return err
@@ -107,7 +109,7 @@ func run() error {
 		}
 	}
 
-	if len(subsystems)==0 {
+	if len(subsystems) == 0 {
 		return fmt.Errorf("no subsystems enabled")
 	}
 
@@ -118,8 +120,17 @@ func run() error {
 			if err != nil {
 				return false, fmt.Errorf("%s: unmarshal incoming message: %w", key, err)
 			}
-			log.Tracef("subsystem '%s': incoming message: %#v", key, event)
-			return relayer.Process(event)
+			js, err := json.Marshal(event)
+			if err != nil {
+				log.Errorf("Subsystem '%s': incoming message, but unable to render: %s", key, err)
+			} else {
+				log.Tracef("Subsystem '%s': incoming message: %s", key, js)
+			}
+			retry, err = relayer.Process(event)
+			if err == nil {
+				log.Infof("Subsystem '%s': successfully processed %s", key, event.GetCorrelationID())
+			}
+			return
 		}
 		kafkacfg, err := kafkaConfig(cfg, key, callback)
 		if err != nil {

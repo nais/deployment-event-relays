@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 )
 
 type Log struct {
@@ -55,19 +56,22 @@ func DefaultConfig() *Config {
 			Format:    "text",
 			Verbosity: "trace",
 		},
+		Kafka: Kafka{
+			GroupIDPrefix: defaultGroupIDPrefix(),
+		},
 	}
 }
 
 func BindFlags(cfg *Config) {
 	pflag.StringSliceVar(&cfg.Kafka.Brokers, "kafka.brokers", cfg.Kafka.Brokers, "")
 	pflag.StringVar(&cfg.Kafka.Topic, "kafka.topic", cfg.Kafka.Topic, "")
-	pflag.StringVar(&cfg.Kafka.GroupIDPrefix, "kafka.group-id-prefix", cfg.Kafka.GroupIDPrefix, defaultGroupIDPrefix())
+	pflag.StringVar(&cfg.Kafka.GroupIDPrefix, "kafka.group-id-prefix", cfg.Kafka.GroupIDPrefix, "")
 	pflag.StringVar(&cfg.Kafka.TLS.CAPath, "kafka.tls.ca-path", cfg.Kafka.TLS.CAPath, "")
 	pflag.StringVar(&cfg.Kafka.TLS.CertificatePath, "kafka.tls.certificate-path", cfg.Kafka.TLS.CAPath, "")
 	pflag.StringVar(&cfg.Kafka.TLS.PrivateKeyPath, "kafka.tls.private-key-path", cfg.Kafka.TLS.PrivateKeyPath, "")
 
-	pflag.StringVar(&cfg.Log.Format, "log.format", cfg.Log.Format, "text")
-	pflag.StringVar(&cfg.Log.Verbosity, "log.verbosity", cfg.Log.Verbosity, "trace")
+	pflag.StringVar(&cfg.Log.Format, "log.format", cfg.Log.Format, "")
+	pflag.StringVar(&cfg.Log.Verbosity, "log.verbosity", cfg.Log.Verbosity, "")
 
 	pflag.StringVar(&cfg.InfluxDB.URL, "influxdb.url", cfg.InfluxDB.URL, "")
 	pflag.StringVar(&cfg.InfluxDB.Username, "influxdb.username", cfg.InfluxDB.Username, "")
@@ -76,6 +80,13 @@ func BindFlags(cfg *Config) {
 	pflag.StringVar(&cfg.Vera.URL, "vera.url", cfg.Vera.URL, "")
 
 	pflag.StringVar(&cfg.Nora.URL, "nora.url", cfg.Nora.URL, "")
+}
+
+func BindNAIS() {
+	viper.BindEnv("kafka.brokers", "KAFKA_BROKERS")
+	viper.BindEnv("kafka.tls.ca-path", "KAFKA_CA_PATH")
+	viper.BindEnv("kafka.tls.certificate-path", "KAFKA_CERTIFICATE_PATH")
+	viper.BindEnv("kafka.tls.private-key-path", "KAFKA_PRIVATE_KEY_PATH")
 }
 
 func defaultGroupIDPrefix() string {
