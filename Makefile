@@ -14,7 +14,8 @@ proto:
 	rm -f event.proto
 
 alpine:
-	go build -a -installsuffix cgo -o deployment-event-relays cmd/deployment-event-relays/main.go
+	mkdir -p bin
+	go build -a -installsuffix cgo -o bin/deployment-event-relays cmd/deployment-event-relays/main.go
 
 test:
 	go test ./...
