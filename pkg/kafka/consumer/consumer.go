@@ -1,114 +1,119 @@
 package consumer
 
 import (
+	"context"
 	"crypto/tls"
-	"fmt"
-	"github.com/navikt/deployment-event-relays/pkg/kafka/config"
-	"github.com/sirupsen/logrus"
-	"sync"
+	"os"
+	"time"
 
 	"github.com/Shopify/sarama"
-	"github.com/bsm/sarama-cluster"
+	log "github.com/sirupsen/logrus"
 )
 
-type Message struct {
-	M   sarama.ConsumerMessage
-	Ack func()
+type Callback func(message *sarama.ConsumerMessage, logger *log.Entry) (retry bool, err error)
+
+type Consumer struct {
+	callback      Callback
+	cancel        context.CancelFunc
+	consumer      sarama.ConsumerGroup
+	ctx           context.Context
+	groupID       string
+	logger        *log.Logger
+	retryInterval time.Duration
+	topic         string
 }
 
-const (
-	recvQueueSize = 32768
-)
-
-type client struct {
-	recvQ    chan Message
-	consumer *cluster.Consumer
-	once     sync.Once
+type Config struct {
+	Brokers           []string
+	Callback          Callback
+	GroupID           string
+	MaxProcessingTime time.Duration
+	Logger            *log.Logger
+	RetryInterval     time.Duration
+	TlsConfig         *tls.Config
+	Topic             string
 }
 
-type Client interface {
-	Consume() chan Message
+// Setup is run at the beginning of a new session, before ConsumeClaim
+func (c *Consumer) Setup(_ sarama.ConsumerGroupSession) error {
+	return nil
 }
 
-func New(cfg config.Consumer) (Client, error) {
+// Cleanup is run at the end of a session, once all ConsumeClaim goroutines have exited
+func (c *Consumer) Cleanup(_ sarama.ConsumerGroupSession) error {
+	return nil
+}
+
+// ConsumeClaim must start a consumer loop of ConsumerGroupClaim's Messages().
+func (c *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
+	var retry = true
 	var err error
 
-	client := &client{
-		recvQ: make (chan Message, recvQueueSize),
+	for message := range claim.Messages() {
+		for retry {
+			logger := c.logger.WithFields(log.Fields{
+				"kafka_offset": message.Offset,
+			})
+			retry, err = c.callback(message, logger)
+			if err != nil {
+				logger.Errorf("Consume Kafka message: %s", err)
+				if retry {
+					time.Sleep(c.retryInterval)
+				}
+			}
+		}
+		retry, err = true, nil
+		session.MarkMessage(message, "")
 	}
+	return nil
+}
 
-	// Instantiate a Kafka client operating in consumer group mode,
-	// starting from the oldest unread offset.
+func New(cfg Config) (*Consumer, error) {
+	config := sarama.NewConfig()
+	config.Net.TLS.Enable = true
+	config.Net.TLS.Config = cfg.TlsConfig
+	config.Version = sarama.V2_6_0_0
+	config.Consumer.Offsets.Initial = sarama.OffsetOldest
+	config.Consumer.MaxProcessingTime = cfg.MaxProcessingTime
+	config.ClientID, _ = os.Hostname()
 
-	client.consumer, err = cluster.NewConsumer(cfg.Brokers, cfg.GroupID, []string{cfg.Topic}, clusterConfig(cfg))
+	consumer, err := sarama.NewConsumerGroup(cfg.Brokers, cfg.GroupID, config)
 	if err != nil {
-		return nil, fmt.Errorf("while setting up Kafka consumer: %s", err)
+		return nil, err
 	}
 
-	return client, nil
-}
+	c := &Consumer{
+		callback:      cfg.Callback,
+		consumer:      consumer,
+		groupID:       cfg.GroupID,
+		logger:        cfg.Logger,
+		retryInterval: cfg.RetryInterval,
+		topic:         cfg.Topic,
+	}
 
-// Consume starts consuming messages from Kafka, and returns
-// a channel on which the messages will arrive. The function
-// call is idempotent.
-//
-// Callers may store their position on the Kafka topic by calling Ack()
-// on the returned message.
-func (c *client) Consume() chan Message {
-	c.once.Do(func() { go c.main() })
-	return c.recvQ
-}
+	c.ctx, c.cancel = context.WithCancel(context.Background())
 
-// Put messages on the queue until the channel is closed.
-func (c *client) main() {
-	for {
-		msg, err := c.next()
-		if err != nil {
-			close(c.recvQ)
-			return
+	go func() {
+		for err := range c.consumer.Errors() {
+			c.logger.Errorf("Consumer encountered error: %s", err)
 		}
-		c.recvQ <- *msg
-	}
-}
+	}()
 
-// Consume one message from Kafka, wrap it together with an Ack closure,
-// and return it to caller.
-func (c *client) next() (*Message, error) {
-	m, ok := <-c.consumer.Messages()
-	if !ok {
-		return nil, fmt.Errorf("consumer has shut down")
-	}
-	return &Message{
-		M: *m,
-		Ack: func() {
-			c.consumer.MarkOffset(m, "")
-		},
-	}, nil
-}
-
-func (m *Message) LogFields() logrus.Fields {
-	if m == nil {
-		return logrus.Fields{}
-	}
-	return logrus.Fields{
-		"kafka_topic":  m.M.Topic,
-		"kafka_offset": m.M.Offset,
-	}
-}
-
-func clusterConfig(cfg config.Consumer) *cluster.Config {
-	c := cluster.NewConfig()
-	c.ClientID = cfg.ClientID
-	c.Consumer.Offsets.Initial = sarama.OffsetOldest
-	c.Net.SASL.Enable = cfg.SASL.Enabled
-	c.Net.SASL.User = cfg.SASL.Username
-	c.Net.SASL.Password = cfg.SASL.Password
-	c.Net.SASL.Handshake = cfg.SASL.Handshake
-	c.Net.TLS.Enable = cfg.TLS.Enabled
-	if cfg.TLS.Enabled {
-		c.Net.TLS.Config = &tls.Config{
-			InsecureSkipVerify: cfg.TLS.Insecure,
+	go func() {
+		for {
+			c.logger.Infof("(re-)starting consumer on topic %s", cfg.Topic)
+			err := c.consumer.Consume(c.ctx, []string{cfg.Topic}, c)
+			if err != nil {
+				c.logger.Errorf("Error setting up consumer: %s", err)
+			}
+			// check if context was cancelled, signaling that the consumer should stop
+			if c.ctx.Err() != nil {
+				c.logger.Errorf("Consumer context error: %s", c.ctx.Err())
+				c.ctx, c.cancel = context.WithCancel(context.Background())
+			}
+			time.Sleep(10 * time.Second)
 		}
-	}
-	return c
+	}()
+
+	return c, nil
 }

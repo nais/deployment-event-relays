@@ -2,38 +2,17 @@ package config
 
 import (
 	"fmt"
-	"github.com/Shopify/sarama"
-	flag "github.com/spf13/pflag"
 	"math/rand"
 	"os"
 	"strconv"
+	"strings"
+	"time"
+
+	"github.com/nais/liberator/pkg/tlsutil"
+	"github.com/navikt/deployment-event-relays/pkg/kafka/consumer"
+	"github.com/sirupsen/logrus"
+	flag "github.com/spf13/pflag"
 )
-
-type SASL struct {
-	Enabled   bool
-	Handshake bool
-	Username  string
-	Password  string
-}
-
-type TLS struct {
-	Enabled  bool
-	Insecure bool
-}
-
-type Consumer struct {
-	Brokers   []string
-	Topic     string
-	ClientID  string
-	GroupID   string
-	Verbosity string
-	TLS       TLS
-	SASL      SASL
-}
-
-func SetLogger(logger sarama.StdLogger) {
-	sarama.Logger = logger
-}
 
 func DefaultGroupName() string {
 	var suffix string
@@ -45,33 +24,31 @@ func DefaultGroupName() string {
 	return fmt.Sprintf("%s-%s", os.Args[0], suffix)
 }
 
-func DefaultConsumer() Consumer {
-	defaultGroup := DefaultGroupName()
-	return Consumer{
-		Verbosity: "trace",
-		Brokers:   []string{"localhost:9092"},
-		Topic:     "messages",
-		ClientID:  defaultGroup,
-		GroupID:   defaultGroup,
-		SASL: SASL{
-			Enabled:   false,
-			Handshake: false,
-			Username:  os.Getenv("KAFKA_SASL_USERNAME"),
-			Password:  os.Getenv("KAFKA_SASL_PASSWORD"),
-		},
+func DefaultConfig() *consumer.Config {
+	tlsConfig, err := tlsutil.TLSConfigFromFiles(
+		os.Getenv("KAFKA_CERTIFICATE_PATH"),
+		os.Getenv("KAFKA_PRIVATE_KEY_PATH"),
+		os.Getenv("KAFKA_CA_PATH"),
+	)
+	if err != nil {
+		logrus.Error(err)
+	}
+	return &consumer.Config{
+		Brokers:           strings.Split(os.Getenv("KAFKA_BROKERS"), ","),
+		Callback:          nil,
+		GroupID:           DefaultGroupName(),
+		MaxProcessingTime: time.Second * 3,
+		Logger:            logrus.StandardLogger(),
+		RetryInterval:     time.Second * 30,
+		TlsConfig:         tlsConfig,
+		Topic:             os.Getenv("KAFKA_TOPIC"),
 	}
 }
 
-func SetupFlags(cfg *Consumer) {
+func SetupFlags(cfg *consumer.Config) {
 	flag.StringSliceVar(&cfg.Brokers, "kafka-brokers", cfg.Brokers, "Comma-separated list of Kafka brokers, HOST:PORT.")
-	flag.StringVar(&cfg.Topic, "kafka-topic", cfg.Topic, "Kafka topic for deployment requests.")
-	flag.StringVar(&cfg.ClientID, "kafka-client-id", cfg.ClientID, "Kafka client ID.")
+	flag.StringVar(&cfg.Topic, "kafka-topic", cfg.Topic, "Dev-rapid/deployment message Kafka topic.")
 	flag.StringVar(&cfg.GroupID, "kafka-group-id", cfg.GroupID, "Kafka consumer group ID.")
-	flag.StringVar(&cfg.Verbosity, "kafka-log-verbosity", cfg.Verbosity, "Log verbosity for Kafka client.")
-	flag.BoolVar(&cfg.SASL.Enabled, "kafka-sasl-enabled", cfg.SASL.Enabled, "Enable SASL authentication.")
-	flag.BoolVar(&cfg.SASL.Handshake, "kafka-sasl-handshake", cfg.SASL.Handshake, "Use handshake for SASL authentication.")
-	flag.StringVar(&cfg.SASL.Username, "kafka-sasl-username", cfg.SASL.Username, "Username for Kafka authentication.")
-	flag.StringVar(&cfg.SASL.Password, "kafka-sasl-password", cfg.SASL.Password, "Password for Kafka authentication.")
-	flag.BoolVar(&cfg.TLS.Enabled, "kafka-tls-enabled", cfg.TLS.Enabled, "Use TLS for connecting to Kafka.")
-	flag.BoolVar(&cfg.TLS.Insecure, "kafka-tls-insecure", cfg.TLS.Insecure, "Allow insecure Kafka TLS connections.")
+	flag.DurationVar(&cfg.MaxProcessingTime, "kafka-max-processing-time", cfg.MaxProcessingTime, "Max time to use per incoming Kafka message.")
+	flag.DurationVar(&cfg.RetryInterval, "kafka-retry-interval", cfg.RetryInterval, "Time between retries when message processing fails.")
 }

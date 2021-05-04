@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+
+	"github.com/Shopify/sarama"
 	"github.com/gdamore/tcell"
 	"github.com/golang/protobuf/proto"
 	"github.com/navikt/deployment-event-relays/pkg/deployment"
@@ -21,7 +23,7 @@ type configuration struct {
 
 var (
 	cfg              = defaultConfig()
-	kafkaConfig      = kafkaconfig.DefaultConsumer()
+	kafkaConfig      = kafkaconfig.DefaultConfig()
 	deployments      = make(chan deployment.Event, 64)
 	messages         = make(chan error, 64)
 	app              = tview.NewApplication()
@@ -43,7 +45,7 @@ func init() {
 	flag.StringVar(&cfg.LogVerbosity, "log-verbosity", cfg.LogVerbosity, "Logging verbosity level.")
 	flag.BoolVar(&cfg.Ack, "ack", cfg.Ack, "Acknowledge messages in Kafka queue, i.e. store consumer group position")
 
-	kafkaconfig.SetupFlags(&kafkaConfig)
+	kafkaconfig.SetupFlags(kafkaConfig)
 }
 
 func filtered(event *deployment.Event) bool {
@@ -65,53 +67,29 @@ func run() error {
 
 	flag.Parse()
 
-	kafkaconfig.SetLogger(kafkaLogger)
-
 	err = logging.Apply(log.StandardLogger(), cfg.LogVerbosity, cfg.LogFormat)
 	if err != nil {
 		return err
 	}
 
-	kafka, err := consumer.New(kafkaConfig)
+	sarama.Logger = kafkaLogger
+
+	kafkaConfig.Callback = func(message *sarama.ConsumerMessage, logger *log.Entry) (retry bool, err error) {
+		event := &deployment.Event{}
+		err = proto.Unmarshal(message.Value, event)
+		if err != nil {
+			return false, fmt.Errorf("unable to unmarshal incoming message: %s", err)
+		}
+		if !filtered(event) {
+			deployments <- *event
+		}
+		return false, nil
+	}
+
+	_, err = consumer.New(*kafkaConfig)
 	if err != nil {
 		return err
 	}
-
-	process := func() (*deployment.Event, error) {
-		select {
-		case msg, ok := <-kafka.Consume():
-			if !ok {
-				return nil, fmt.Errorf("kafka consumer has shut down")
-			}
-
-			if cfg.Ack {
-				msg.Ack()
-			}
-			data := msg.M.Value
-
-			event := &deployment.Event{}
-			err = proto.Unmarshal(data, event)
-			if err != nil {
-				return nil, fmt.Errorf("unable to unmarshal incoming message: %s", err)
-			}
-
-			return event, nil
-		}
-	}
-
-	go func() {
-		for {
-			event, err := process()
-			if err == nil {
-				if filtered(event) {
-					continue
-				}
-				deployments <- *event
-			} else {
-				messages <- err
-			}
-		}
-	}()
 
 	log.SetOutput(messageWidget)
 
