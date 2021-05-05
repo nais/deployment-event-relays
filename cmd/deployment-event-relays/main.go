@@ -17,6 +17,7 @@ import (
 	"github.com/navikt/deployment-event-relays/pkg/kafka/consumer"
 	"github.com/navikt/deployment-event-relays/pkg/logging"
 	"github.com/navikt/deployment-event-relays/pkg/nora"
+	"github.com/navikt/deployment-event-relays/pkg/null"
 	"github.com/navikt/deployment-event-relays/pkg/vera"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
@@ -109,11 +110,15 @@ func run() error {
 		}
 	}
 
+	if cfg.Null.Enabled {
+		subsystems["null"] = &null.Relay{}
+	}
+
 	if len(subsystems) == 0 {
 		return fmt.Errorf("no subsystems enabled")
 	}
 
-	for key, relayer := range subsystems {
+	setup := func(key string, relayer Processor) error {
 		callback := func(message *sarama.ConsumerMessage, logger *log.Entry) (retry bool, err error) {
 			event := &deployment.Event{}
 			err = proto.Unmarshal(message.Value, event)
@@ -122,24 +127,33 @@ func run() error {
 			}
 			js, err := json.Marshal(event)
 			if err != nil {
-				log.Errorf("Subsystem '%s': incoming message, but unable to render: %s", key, err)
+				log.Errorf("%s: incoming message, but unable to render: %s", key, err)
 			} else {
-				log.Tracef("Subsystem '%s': incoming message: %s", key, js)
+				log.Tracef("%s: incoming message: %s", key, js)
 			}
 			retry, err = relayer.Process(event)
 			if err == nil {
-				log.Infof("Subsystem '%s': successfully processed %s", key, event.GetCorrelationID())
+				log.Infof("%s: successfully processed %s", key, event.GetCorrelationID())
 			}
 			return
 		}
 		kafkacfg, err := kafkaConfig(cfg, key, callback)
 		if err != nil {
-			return fmt.Errorf("set up subsystem '%s': %w", key, err)
+			return fmt.Errorf("initialize configuration: %w", err)
 		}
 		_, err = consumer.New(*kafkacfg)
 		if err != nil {
-			return fmt.Errorf("initialize Kafka for subsystem '%s': %w", key, err)
+			return fmt.Errorf("initialize Kafka for subsystem %w", err)
 		}
+		return nil
+	}
+
+	for key, relayer := range subsystems {
+		err := setup(key, relayer)
+		if err != nil {
+			return fmt.Errorf("setup subsystem '%s': %w", key, err)
+		}
+		log.Infof("Enabled subsystem '%s'", key)
 	}
 
 	sigs := make(chan os.Signal, 1)

@@ -29,6 +29,10 @@ type Nora struct {
 	URL string `json:"url"`
 }
 
+type Null struct {
+	Enabled bool `json:"enabled"`
+}
+
 type KafkaTLS struct {
 	CAPath          string `json:"ca-path"`
 	CertificatePath string `json:"certificate-path"`
@@ -47,6 +51,7 @@ type Config struct {
 	InfluxDB InfluxDB `json:"influxdb"`
 	Nora     Nora     `json:"nora"`
 	Vera     Vera     `json:"vera"`
+	Null     Null     `json:"null"`
 	Kafka    Kafka    `json:"kafka"`
 }
 
@@ -80,6 +85,8 @@ func BindFlags(cfg *Config) {
 	pflag.StringVar(&cfg.Vera.URL, "vera.url", cfg.Vera.URL, "")
 
 	pflag.StringVar(&cfg.Nora.URL, "nora.url", cfg.Nora.URL, "")
+
+	pflag.BoolVar(&cfg.Null.Enabled, "null.enabled", cfg.Null.Enabled, "")
 }
 
 func BindNAIS() {
