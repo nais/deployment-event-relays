@@ -123,17 +123,24 @@ func run() error {
 			event := &deployment.Event{}
 			err = proto.Unmarshal(message.Value, event)
 			if err != nil {
-				return false, fmt.Errorf("%s: unmarshal incoming message: %w", key, err)
+				// unknown types are dropped silently
+				return false, nil
 			}
+
+			logger = logger.WithFields(log.Fields{
+				"subsystem":      key,
+				"correlation_id": event.GetCorrelationID(),
+			})
+
 			js, err := json.Marshal(event)
 			if err != nil {
-				log.Errorf("%s: incoming message, but unable to render: %s", key, err)
+				logger.Errorf("incoming message, but unable to render: %s", err)
 			} else {
-				log.Tracef("%s: incoming message: %s", key, js)
+				logger.Tracef("incoming message: %s", js)
 			}
 			retry, err = relayer.Process(event)
 			if err == nil {
-				log.Infof("%s: successfully processed %s", key, event.GetCorrelationID())
+				logger.Infof("successfully processed message")
 			}
 			return
 		}
