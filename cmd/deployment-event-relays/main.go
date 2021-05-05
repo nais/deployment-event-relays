@@ -135,7 +135,7 @@ func run() error {
 			err = proto.Unmarshal(message.Value, event)
 			if err != nil {
 				// unknown types are dropped silently
-				metrics.Process(key, metrics.LabelValueProcessedDropped, message.Offset)
+				metrics.Process(key, metrics.LabelValueProcessedDropped, message.Offset+1)
 				return false, nil
 			}
 
@@ -153,12 +153,12 @@ func run() error {
 			retry, err = relayer.Process(event)
 			if err == nil {
 				logger.Infof("Successfully processed message")
-				metrics.Process(key, metrics.LabelValueProcessedOK, message.Offset)
+				metrics.Process(key, metrics.LabelValueProcessedOK, message.Offset+1)
 			} else {
 				if retry {
 					metrics.Process(key, metrics.LabelValueProcessedRetry, message.Offset)
 				} else {
-					metrics.Process(key, metrics.LabelValueProcessedError, message.Offset)
+					metrics.Process(key, metrics.LabelValueProcessedError, message.Offset+1)
 				}
 			}
 			return
