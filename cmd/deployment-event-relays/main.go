@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"time"
@@ -16,9 +17,11 @@ import (
 	"github.com/navikt/deployment-event-relays/pkg/influx"
 	"github.com/navikt/deployment-event-relays/pkg/kafka/consumer"
 	"github.com/navikt/deployment-event-relays/pkg/logging"
+	"github.com/navikt/deployment-event-relays/pkg/metrics"
 	"github.com/navikt/deployment-event-relays/pkg/nora"
 	"github.com/navikt/deployment-event-relays/pkg/null"
 	"github.com/navikt/deployment-event-relays/pkg/vera"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 )
@@ -88,6 +91,14 @@ func run() error {
 
 	sarama.Logger = log.StandardLogger()
 
+	go func() {
+		err := http.ListenAndServe(cfg.Metrics.BindAddress, promhttp.Handler())
+		if err != nil {
+			log.Errorf("Serve metrics: %s", err)
+			os.Exit(2)
+		}
+	}()
+
 	subsystems := make(map[string]Processor)
 
 	if len(cfg.InfluxDB.URL) > 0 {
@@ -124,6 +135,7 @@ func run() error {
 			err = proto.Unmarshal(message.Value, event)
 			if err != nil {
 				// unknown types are dropped silently
+				metrics.Process(key, metrics.LabelValueProcessedDropped)
 				return false, nil
 			}
 
@@ -134,16 +146,24 @@ func run() error {
 
 			js, err := json.Marshal(event)
 			if err != nil {
-				logger.Errorf("incoming message, but unable to render: %s", err)
+				logger.Errorf("Incoming message, but unable to render: %s", err)
 			} else {
-				logger.Tracef("incoming message: %s", js)
+				logger.Tracef("Incoming message: %s", js)
 			}
 			retry, err = relayer.Process(event)
 			if err == nil {
-				logger.Infof("successfully processed message")
+				logger.Infof("Successfully processed message")
+				metrics.Process(key, metrics.LabelValueProcessedOK)
+			} else {
+				if retry {
+					metrics.Process(key, metrics.LabelValueProcessedRetry)
+				} else {
+					metrics.Process(key, metrics.LabelValueProcessedError)
+				}
 			}
 			return
 		}
+		metrics.Init(key)
 		kafkacfg, err := kafkaConfig(cfg, key, callback)
 		if err != nil {
 			return fmt.Errorf("initialize configuration: %w", err)

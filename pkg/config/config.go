@@ -10,6 +10,10 @@ import (
 	"github.com/spf13/viper"
 )
 
+type Metrics struct {
+	BindAddress string `json:"bind-address"`
+}
+
 type Log struct {
 	Format    string `json:"format"`
 	Verbosity string `json:"verbosity"`
@@ -47,6 +51,7 @@ type Kafka struct {
 }
 
 type Config struct {
+	Metrics  Metrics  `json:"metrics"`
 	Log      Log      `json:"log"`
 	InfluxDB InfluxDB `json:"influxdb"`
 	Nora     Nora     `json:"nora"`
@@ -60,6 +65,9 @@ func DefaultConfig() *Config {
 		Log: Log{
 			Format:    "text",
 			Verbosity: "trace",
+		},
+		Metrics: Metrics{
+			BindAddress: "127.0.0.1:8080",
 		},
 		Kafka: Kafka{
 			GroupIDPrefix: defaultGroupIDPrefix(),
@@ -87,6 +95,8 @@ func BindFlags(cfg *Config) {
 	pflag.StringVar(&cfg.Nora.URL, "nora.url", cfg.Nora.URL, "")
 
 	pflag.BoolVar(&cfg.Null.Enabled, "null.enabled", cfg.Null.Enabled, "")
+
+	pflag.StringVar(&cfg.Metrics.BindAddress, "metrics.bind-address", cfg.Metrics.BindAddress, "")
 }
 
 func BindNAIS() {
