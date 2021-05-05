@@ -42,3 +42,10 @@ jobs:
         CLUSTER: dev-gcp
         RESOURCE: .nais/nais.yaml
         VAR: image=${{ env.image }}:${{ env.version }},kafka_pool=nav-dev
+    - name: Deploy to prod-gcp
+      uses: nais/deploy/actions/deploy@v1
+      env:
+        APIKEY: ${{ secrets.NAIS_DEPLOY_APIKEY }}
+        CLUSTER: prod-gcp
+        RESOURCE: .nais/nais.yaml
+        VAR: image=${{ env.image }}:${{ env.version }},kafka_pool=nav-infrastructure
