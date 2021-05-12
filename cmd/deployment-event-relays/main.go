@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/Shopify/sarama"
-	"github.com/golang/protobuf/proto"
 	"github.com/nais/liberator/pkg/conftools"
 	"github.com/nais/liberator/pkg/tlsutil"
 	"github.com/navikt/deployment-event-relays/pkg/config"
@@ -24,6 +23,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 type Processor interface {
@@ -132,7 +133,8 @@ func run() error {
 	setup := func(key string, relayer Processor) error {
 		callback := func(message *sarama.ConsumerMessage, logger *log.Entry) (retry bool, err error) {
 			event := &deployment.Event{}
-			err = proto.Unmarshal(message.Value, event)
+			any := &anypb.Any{}
+			err = proto.Unmarshal(message.Value, any)
 			if err != nil {
 				// unknown types are dropped silently
 				metrics.Process(key, metrics.LabelValueProcessedDropped, message.Offset+1)
