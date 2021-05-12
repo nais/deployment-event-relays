@@ -135,7 +135,7 @@ func run() error {
 			event := &deployment.Event{}
 			any := &anypb.Any{}
 			err = proto.Unmarshal(message.Value, any)
-			if err != nil {
+			if err != nil || event.GetTimestampAsTime().Unix() == 0 {
 				// unknown types are dropped silently
 				metrics.Process(key, metrics.LabelValueProcessedDropped, message.Offset+1)
 				return false, nil
