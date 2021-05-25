@@ -21,6 +21,7 @@ import (
 	"github.com/navikt/deployment-event-relays/pkg/null"
 	"github.com/navikt/deployment-event-relays/pkg/vera"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	sarama_metrics "github.com/rcrowley/go-metrics"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"google.golang.org/protobuf/proto"
@@ -77,6 +78,8 @@ func run() error {
 	if err != nil {
 		return err
 	}
+
+	sarama_metrics.UseNilMetrics = true
 
 	log.Infof("deployment-event-relays starting up")
 	log.Infof("--- configuration ---")
