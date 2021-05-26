@@ -50,6 +50,8 @@ func (r *Relay) Process(event *deployment.Event) (retry bool, err error) {
 		return true, fmt.Errorf("post to Vera: %s", err)
 	}
 
+	defer response.Body.Close()
+
 	if response.StatusCode > 299 {
 		return true, fmt.Errorf("POST %s: %s", r.URL, response.Status)
 	}

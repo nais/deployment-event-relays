@@ -39,6 +39,8 @@ func (r *Relay) Process(event *deployment.Event) (retry bool, err error) {
 	}
 	bodyLoad, _ := ioutil.ReadAll(response.Body)
 
+	defer response.Body.Close()
+
 	if response.StatusCode > 299 {
 		raw, _ := line.Marshal()
 		log.WithFields(log.Fields{
