@@ -9,6 +9,10 @@ jobs:
   build:
     name: Build Docker container
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
     steps:
       - uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # ratchet:actions/checkout@v3
       - name: Generate version tags
