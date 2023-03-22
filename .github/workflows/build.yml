@@ -54,27 +54,3 @@ jobs:
           image-ref: ${{ env.image }}@${{ steps.build-push.outputs.digest }}
       - name: Attest image
         run: cosign attest --yes --predicate 'cyclone.sbom.json' --type cyclonedx ${{ env.image }}@${{ steps.build-push.outputs.digest }}
-  deploy:
-    name: Deploy new version to NAIS
-    if: github.ref == 'refs/heads/master'
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@dc323e67f16fb5f7663d20ff7941f27f5809e9b6 # ratchet:actions/checkout@v2
-      - name: Generate image environment variable
-        run: |
-          echo "version=$(./version.sh)" >> $GITHUB_ENV
-      - name: Deploy to dev-gcp
-        uses: nais/deploy/actions/deploy@fff9ae049178e5d3dca5c9600cf78acce63c0708 # ratchet:nais/deploy/actions/deploy@v1
-        env:
-          APIKEY: ${{ secrets.NAIS_DEPLOY_APIKEY }}
-          CLUSTER: dev-gcp
-          RESOURCE: .nais/nais.yaml
-          VAR: image=${{ env.image }}:${{ env.version }},kafka_pool=nav-dev
-      - name: Deploy to prod-fss
-        uses: nais/deploy/actions/deploy@fff9ae049178e5d3dca5c9600cf78acce63c0708 # ratchet:nais/deploy/actions/deploy@v1
-        env:
-          APIKEY: ${{ secrets.NAIS_DEPLOY_APIKEY }}
-          CLUSTER: prod-fss
-          RESOURCE: .nais/nais.yaml
-          VAR: image=${{ env.image }}:${{ env.version }},kafka_pool=nav-infrastructure
