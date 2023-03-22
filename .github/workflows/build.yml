@@ -36,13 +36,13 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
       - name: Install cosign
-        uses: sigstore/cosign-installer@main
+        uses: sigstore/cosign-installer@00bf1366a3f8c043c1f6f802441642bced142f5c # ratchet:sigstore/cosign-installer@main
         with:
           cosign-release: 'v2.0.0'
       - name: Sign the container image
         run: cosign sign --yes ${{ env.image }}@${{ steps.build-push.outputs.digest }}
       - name: Create SBOM
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@1f0aa582c8c8f5f7639610d6d38baddfea4fdcee # ratchet:aquasecurity/trivy-action@master
         with:
           scan-type: 'image'
           format: 'cyclonedx'
@@ -50,7 +50,6 @@ jobs:
           image-ref: ${{ env.image }}@${{ steps.build-push.outputs.digest }}
       - name: Attest image
         run: cosign attest --yes --predicate 'cyclone.sbom.json' --type cyclonedx ${{ env.image }}@${{ steps.build-push.outputs.digest }}
-
   deploy:
     name: Deploy new version to NAIS
     if: github.ref == 'refs/heads/master'
