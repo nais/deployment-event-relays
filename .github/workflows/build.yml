@@ -1,51 +1,61 @@
 name: deployment-event-relays build and deploy
-
 on:
-  push: {}
-
+  push:
+    paths-ignore:
+      - "*.md"
 env:
-  image: ghcr.io/nais/deployment-event-relays
-
+  image: ghcr.io/${{ github.repository }}
 jobs:
   build:
     name: Build Docker container
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - name: Generate version tags
-      run: |
-        echo "version=$(./version.sh)" >> $GITHUB_ENV
-    - name: Build Docker image
-      run: |
-        docker build --tag ${image}:${version} .
-    - name: Push Docker image to GitHub
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        docker login ghcr.io -u ${GITHUB_REPOSITORY} -p ${GITHUB_TOKEN}
-        docker push ${image}:${version}
-
+      - uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # ratchet:actions/checkout@v3
+      - name: Generate version tags
+        id: gen-version
+        run: |
+          echo "version=$(./version.sh)" >> ${GITHUB_OUTPUT}
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@4b4e9c3e2d4531116a6f8ba8e71fc6e2cb6e6c8c # ratchet:docker/setup-buildx-action@v2
+      - name: Login to registry
+        if: github.ref == 'refs/heads/master'
+        uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a # ratchet:docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push
+        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671 # ratchet:docker/build-push-action@v4
+        id: build-push
+        with:
+          context: .
+          file: Dockerfile
+          push: github.ref == 'refs/heads/master'
+          tags: ${{ env.image }}:${{ steps.gen-version.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
   deploy:
     name: Deploy new version to NAIS
     if: github.ref == 'refs/heads/master'
     needs: build
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - name: Generate image environment variable
-      run: |
-        echo "version=$(./version.sh)" >> $GITHUB_ENV
-    - name: Deploy to dev-gcp
-      uses: nais/deploy/actions/deploy@v1
-      env:
-        APIKEY: ${{ secrets.NAIS_DEPLOY_APIKEY }}
-        CLUSTER: dev-gcp
-        RESOURCE: .nais/nais.yaml
-        VAR: image=${{ env.image }}:${{ env.version }},kafka_pool=nav-dev
-    - name: Deploy to prod-fss
-      uses: nais/deploy/actions/deploy@v1
-      env:
-        APIKEY: ${{ secrets.NAIS_DEPLOY_APIKEY }}
-        CLUSTER: prod-fss
-        RESOURCE: .nais/nais.yaml
-        VAR: image=${{ env.image }}:${{ env.version }},kafka_pool=nav-infrastructure
+      - uses: actions/checkout@dc323e67f16fb5f7663d20ff7941f27f5809e9b6 # ratchet:actions/checkout@v2
+      - name: Generate image environment variable
+        run: |
+          echo "version=$(./version.sh)" >> $GITHUB_ENV
+      - name: Deploy to dev-gcp
+        uses: nais/deploy/actions/deploy@fff9ae049178e5d3dca5c9600cf78acce63c0708 # ratchet:nais/deploy/actions/deploy@v1
+        env:
+          APIKEY: ${{ secrets.NAIS_DEPLOY_APIKEY }}
+          CLUSTER: dev-gcp
+          RESOURCE: .nais/nais.yaml
+          VAR: image=${{ env.image }}:${{ env.version }},kafka_pool=nav-dev
+      - name: Deploy to prod-fss
+        uses: nais/deploy/actions/deploy@fff9ae049178e5d3dca5c9600cf78acce63c0708 # ratchet:nais/deploy/actions/deploy@v1
+        env:
+          APIKEY: ${{ secrets.NAIS_DEPLOY_APIKEY }}
+          CLUSTER: prod-fss
+          RESOURCE: .nais/nais.yaml
+          VAR: image=${{ env.image }}:${{ env.version }},kafka_pool=nav-infrastructure
