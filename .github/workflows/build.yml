@@ -13,6 +13,8 @@ jobs:
       contents: read
       packages: write
       id-token: write
+    outputs:
+      version: ${{ steps.gen-version.outputs.version }}
     steps:
       - uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # ratchet:actions/checkout@v3
       - name: Generate version tags
@@ -54,3 +56,15 @@ jobs:
           image-ref: ${{ env.image }}@${{ steps.build-push.outputs.digest }}
       - name: Attest image
         run: cosign attest --yes --predicate 'cyclone.sbom.json' --type cyclonedx ${{ env.image }}@${{ steps.build-push.outputs.digest }}
+
+  rollout:
+    permissions:
+      id-token: write
+    needs: ["build"]
+    runs-on: fasit-deploy
+    if: github.ref == 'refs/heads/master'
+    steps:
+      - uses: nais/fasit-deploy@b2c0b6d049b53bef41b321eec406fe66938576fd # ratchet:nais/fasit-deploy@main
+        with:
+          json: '{"image": {"tag": "${{ needs.build.outputs.version }}"}}'
+          feature_name: deployd
