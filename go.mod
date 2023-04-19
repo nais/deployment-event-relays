@@ -1,6 +1,6 @@
 module github.com/navikt/deployment-event-relays
 
-go 1.17
+go 1.20
 
 require (
 	github.com/Shopify/sarama v1.28.0
