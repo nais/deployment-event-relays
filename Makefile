@@ -12,7 +12,7 @@ proto:
 	$(PROTOC) --go_opt=Mpkg/deployment/event.proto=github.com/nais/deployment-event-relays/pkg/deployment,paths=source_relative --go_out=. pkg/deployment/event.proto
 	rm -f pkg/deployment/event.proto
 
-alpine:
+static:
 	mkdir -p bin
 	go build -a -installsuffix cgo -o bin/deployment-event-relays cmd/deployment-event-relays/main.go
 

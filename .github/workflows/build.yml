@@ -21,6 +21,14 @@ jobs:
         id: gen-version
         run: |
           echo "version=$(./version.sh)" >> ${GITHUB_OUTPUT}
+      - name: Install cosign
+        uses: sigstore/cosign-installer@00bf1366a3f8c043c1f6f802441642bced142f5c # ratchet:sigstore/cosign-installer@main
+        with:
+          cosign-release: 'v2.0.0'
+      - name: Verify builder image
+        run: cosign verify --certificate-identity "https://github.com/chainguard-images/images/.github/workflows/release.yaml@refs/heads/main"  --certificate-oidc-issuer "https://token.actions.githubusercontent.com" cgr.dev/chainguard/go:1.20
+      - name: Verify runner image
+        run: cosign verify --certificate-oidc-issuer https://accounts.google.com  --certificate-identity keyless@distroless.iam.gserviceaccount.com gcr.io/distroless/static-debian11:nonroot
       - name: Set up Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@4b4e9c3e2d4531116a6f8ba8e71fc6e2cb6e6c8c # ratchet:docker/setup-buildx-action@v2
@@ -41,10 +49,6 @@ jobs:
           tags: ${{ env.image }}:${{ steps.gen-version.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      - name: Install cosign
-        uses: sigstore/cosign-installer@00bf1366a3f8c043c1f6f802441642bced142f5c # ratchet:sigstore/cosign-installer@main
-        with:
-          cosign-release: 'v2.0.0'
       - name: Sign the container image
         run: cosign sign --yes ${{ env.image }}@${{ steps.build-push.outputs.digest }}
       - name: Create SBOM

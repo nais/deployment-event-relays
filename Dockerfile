@@ -1,14 +1,12 @@
-FROM golang:1.20-alpine as builder
-RUN apk add --no-cache git make
+FROM cgr.dev/chainguard/go:1.20 as builder
 ENV GOOS=linux
 ENV CGO_ENABLED=0
 COPY . /src
 WORKDIR /src
 RUN make test
-RUN make alpine
+RUN make static
 
-FROM alpine:3.14
-RUN apk add --no-cache ca-certificates
+FROM gcr.io/distroless/static-debian11:nonroot
 WORKDIR /app
 COPY --from=builder /src/bin/deployment-event-relays /app/deployment-event-relays
 CMD ["/app/deployment-event-relays"]
