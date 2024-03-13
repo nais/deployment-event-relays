@@ -16,7 +16,7 @@ require (
 	github.com/stretchr/testify v1.7.0
 	golang.org/x/crypto v0.17.0 // indirect
 	golang.org/x/net v0.17.0 // indirect
-	google.golang.org/protobuf v1.26.0
+	google.golang.org/protobuf v1.33.0
 )
 
 require (
