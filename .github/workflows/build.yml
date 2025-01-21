@@ -4,7 +4,8 @@ on:
     paths-ignore:
       - "*.md"
 env:
-  image: ghcr.io/${{ github.repository }}
+	GOOGLE_REGISTRY: europe-north1-docker.pkg.dev
+
 jobs:
   build:
     name: Build Docker container
@@ -16,57 +17,25 @@ jobs:
     outputs:
       version: ${{ steps.gen-version.outputs.version }}
     steps:
-      - uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # ratchet:actions/checkout@v3
-      - name: Generate version tags
-        id: gen-version
-        run: |
-          echo "version=$(./version.sh)" >> ${GITHUB_OUTPUT}
-      - name: Install cosign
-        uses: sigstore/cosign-installer@00bf1366a3f8c043c1f6f802441642bced142f5c # ratchet:sigstore/cosign-installer@main
+      - uses: actions/checkout@v4
+      - name: Build push and sign
+        uses: nais/platform-build-push-sign@main # ratchet:exclude
+        id: build-push-sign
         with:
-          cosign-release: 'v2.2.1'
-      - name: Verify runner image
-        run: cosign verify --certificate-oidc-issuer https://accounts.google.com  --certificate-identity keyless@distroless.iam.gserviceaccount.com gcr.io/distroless/static-debian11:nonroot
-      - name: Set up Docker Buildx
-        id: buildx
-        uses: docker/setup-buildx-action@4b4e9c3e2d4531116a6f8ba8e71fc6e2cb6e6c8c # ratchet:docker/setup-buildx-action@v2
-      - name: Login to registry
-        if: github.ref == 'refs/heads/master'
-        uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a # ratchet:docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build and push
-        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671 # ratchet:docker/build-push-action@v4
-        id: build-push
-        with:
-          context: .
-          file: Dockerfile
-          push: ${{ github.ref == 'refs/heads/master' }}
-          tags: ${{ env.image }}:${{ steps.gen-version.outputs.version }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-      - name: Sign the container image
-        run: cosign sign --yes ${{ env.image }}@${{ steps.build-push.outputs.digest }}
-      - name: Create SBOM
-        uses: aquasecurity/trivy-action@1f0aa582c8c8f5f7639610d6d38baddfea4fdcee # ratchet:aquasecurity/trivy-action@master
-        with:
-          scan-type: 'image'
-          format: 'cyclonedx'
-          output: 'cyclone.sbom.json'
-          image-ref: ${{ env.image }}@${{ steps.build-push.outputs.digest }}
-      - name: Attest image
-        run: cosign attest --yes --predicate 'cyclone.sbom.json' --type cyclonedx ${{ env.image }}@${{ steps.build-push.outputs.digest }}
+          name: deployment-event-relays
+          google_service_account: gh-deployment-event-relays
+          workload_identity_provider: ${{ secrets.NAIS_IO_WORKLOAD_IDENTITY_PROVIDER }}
+          push: true
 
   rollout:
+    name: Rollout
+    if: github.actor != 'dependabot[bot]' && github.ref == 'refs/heads/master'
+    needs: build
+    runs-on: fasit-deploy
     permissions:
       id-token: write
-    needs: ["build"]
-    runs-on: fasit-deploy
-    if: github.ref == 'refs/heads/master'
     steps:
-      - uses: nais/fasit-deploy@b2c0b6d049b53bef41b321eec406fe66938576fd # ratchet:nais/fasit-deploy@main
+      - uses: nais/fasit-deploy@v2 # ratchet:exclude
         with:
-          json: '{"image": {"tag": "${{ needs.build.outputs.version }}"}}'
-          feature_name: deployd
+          chart: oci://${{ env.GOOGLE_REGISTRY }}/nais-io/nais/feature/deployd
+          #version: ${{ needs.build.outputs.chart_version }}
