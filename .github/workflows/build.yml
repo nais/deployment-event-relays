@@ -4,7 +4,7 @@ on:
     paths-ignore:
       - "*.md"
 env:
-	GOOGLE_REGISTRY: europe-north1-docker.pkg.dev
+  GOOGLE_REGISTRY: europe-north1-docker.pkg.dev
 
 jobs:
   build:
